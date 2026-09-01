@@ -1,0 +1,8 @@
+node_modules/
+test-results/
+playwright-report/
+.DS_Store
+
+# mirrored plan backups land here on the kit author's machine — never ship a real plan
+vplan_*.html
+!vplan_template.html

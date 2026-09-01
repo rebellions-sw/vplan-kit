@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verification Plan</title>
+<!--
+=====================================================================================
+ VPLAN — Single-file Verification Plan  (schema: vplan/1.0, methodology: UVM/SystemVerilog)
+=====================================================================================
+
+ [ HUMAN ]
+   Open this file in CHROME. Every field is editable in place. Saving in place needs the File System
+   Access API, which Safari does not have — there, every save downloads a copy instead and this file
+   never changes. The label beside the Save button says which mode you are in.
+   Ctrl/Cmd+S  = save. No dialog, ever: the page posts itself to the local vplan-save helper
+   (127.0.0.1), which writes ~/vplans/vplan_<IP>.html in place. If the helper is down, the save
+   falls back to a download — run vplan-sync.sh by hand to ingest those.
+   Ctrl/Cmd+Shift+S = save as — write a dated SNAPSHOT copy. A snapshot reopened is READ-ONLY:
+   no Save buttons (the stamp of when it was made sits in their place), no editing, no row moves —
+   the original stays the one and only place the plan changes.
+   Load (originals only) = pull a snapshot file back onto the screen; press Save to make it real.
+   The Suggestions from AI panel under Features / Verification Items holds gap analyses written here by
+   Claude Code. Nothing lands in the plan until a human
+   reads the MAS evidence on the card and clicks Accept.
+
+ [ AI EDITING CONTRACT ]  <-- read this before modifying the file programmatically
+   1. The ONLY source of truth is the JSON inside  <script id="vplan-data" type="application/json">.
+      Everything else in this file is a renderer. Never hand-edit the rendered DOM.
+   2. To edit: parse that JSON, mutate it, write it back into the same <script> block.
+      Do not reformat or restructure the surrounding HTML/JS.
+   3. IDs (`id` fields) are stable primary keys. Never renumber one yourself — only the UI's Refresh
+      button does that, and it rewrites every reference in the same pass.
+      New IDs: features F##, verification items VI###, testcases TC###, coverage CG##, assertions SVA##.
+   3b. `suggestions[]` is the agent's inbox, NOT the plan. An agent may APPEND to it and may set
+      `status` only on entries it created. It must never write into `features[]` / `testcases[]` /
+      `coverage` directly on the strength of a suggestion — the human accepts it in the UI.
+      Each entry needs: sid (S###), kind, status (pending|accepted|rejected), confidence, created,
+      source{doc,section,url,quote}, rationale, payload{...the object being proposed...}.
+      `quote` must be text actually present in the source document. Do not paraphrase it.
+      Before proposing, read entries with status "rejected": `reject_kind` says why —
+      duplicated (the plan already had it: match harder), hallucinated (the claim did not hold:
+      quote more strictly), waived (a project decision, nothing to fix) — and `reject_reason` adds
+      detail. Never propose a rejected item again.
+   4. Cross references are by ID string:
+        testcases[].feature_refs[]   -> features[].id
+        testcases[].coverage_refs[]  -> coverage.functional[].id | coverage.assertions[].id
+        coverage.functional[].feature_refs[] -> features[].id
+      Keep them consistent. The "Lint" button in the UI checks this.
+   5. Enum values are fixed. See `$enums` at the top of the JSON.
+   6. Free-text fields accept Markdown-ish plain text. No HTML.
+
+ [ TESTBENCH GENERATION CONTRACT ]
+   A generator should be able to emit a full UVM TB from this JSON alone:
+     testcases[].uvm      -> uvm_test class, base test, virtual sequence, per-agent sequences
+                             (the agent inventory is the set of `sequences[].agent` names used anywhere)
+     testcases[].config   -> plusargs & uvm_config_db settings for that test
+     testcases[].checks   -> what the scoreboard / assertion / RAL must verify (`ref` names the component)
+     testcases[].tb_gen_hints -> TB-side requirements not visible in any other field
+     coverage.functional  -> covergroup skeletons (covergroup / sample_point / bins)
+     coverage.assertions  -> SVA property skeletons (bind target in `module`)
+     testcases[].seeds    -> seed count per test for the regression runner
+   The env / agent / scoreboard structure is DERIVED, not stored here: the agent list comes from
+   testcases[].uvm.sequences[].agent, scoreboard & model component names come from checks[].ref, and the
+   base test / virtual sequence names come from testcases[].uvm. Keep those names spelled consistently —
+   a typo creates a phantom agent. The Lint button reports every distinct agent name it finds.
+   NOTE: this plan does not describe the DUT pin interfaces (protocol, widths, clocks). The generator must
+   take those from the RTL or the spec; it cannot invent them from this file.
+   Use the "Copy TB Context" toolbar button to copy this subset plus a ready-made prompt.
+=====================================================================================
+-->
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --ink:#16191d; --ink-2:#5b6470;
+  --line:#e2e6eb; --line-2:#eef1f4; --accent:#2f6feb; --accent-soft:#e8f0fe;
+  --ok:#1a7f4b; --ok-bg:#e6f4ec; --warn:#9a6200; --warn-bg:#fdf1dd;
+  --err:#b4232a; --err-bg:#fceceb; --mut:#6b7280; --mut-bg:#eef0f3;
+  --row-head:#f4f6f8;
+  --radius:8px; --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f1115; --panel:#171a20; --panel-2:#1c2027; --ink:#e6e9ee; --ink-2:#a3acb9;
+    --line:#2a2f38; --line-2:#232830; --accent:#6aa0ff; --accent-soft:#1b2740;
+    --ok:#5cc98f; --ok-bg:#12291d; --warn:#e0aa5a; --warn-bg:#2c2213;
+    --err:#f08a86; --err-bg:#2e1717; --mut:#8b93a1; --mut-bg:#232830;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+#app{max-width:1400px;margin:0 auto;padding:0 20px 80px}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;background:var(--bg);padding:14px 0 0;border-bottom:1px solid var(--line)}
+.topbar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.title{font-size:17px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:baseline;gap:8px}
+.title .ver{font:400 12px/1 var(--mono);color:var(--mut)}
+.metastrip{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:9px}
+.ms-item{display:flex;align-items:center;gap:6px}
+.ms-item > b{font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.ms-item > b.asis{text-transform:none}
+.ms-item a{color:var(--accent);text-decoration:none;font-weight:600;font-size:11px}
+/* Input SRC block — one grid so both rows line up on every column */
+.srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:5px 9px;padding:7px 10px;background:var(--panel-2);
+  border:1px solid var(--line-2);border-radius:var(--radius)}
+.src-k{font-size:11px;font-weight:600;line-height:1;color:var(--accent);background:var(--accent-soft);
+  border-radius:999px;padding:4px 8px;white-space:nowrap;text-align:center}
+.cell.src-v{word-break:break-all;background:transparent}
+.cell.src-v:hover{background:var(--panel-2)}
+.src-go{color:var(--accent);text-decoration:none;font-weight:600;font-size:12px;padding:0 2px}
+/* row reordering */
+.tbd{font-size:9.5px;font-weight:700;color:var(--mut);opacity:.75;letter-spacing:.04em;vertical-align:1px}
+.foldbox{margin-top:14px}
+.foldbox > .sug-fold{margin-top:0}
+.sug-fold{display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 10px;cursor:pointer;
+  border:1px solid var(--line);border-radius:6px;background:var(--panel-2);user-select:none}
+.sug-fold:hover{border-color:var(--accent)}
+.sug-fold > b{font-size:11.5px;font-weight:700;color:var(--ink-2)}
+.sug-fold .caret{color:var(--mut);font-size:11px}
+.sug-fold .hint{margin-left:auto;color:var(--mut);font-size:10.5px}
+td > select.cell{width:100%}
+select.cell.phase{min-width:128px}
+.refcell{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.reflink{display:inline-flex;align-items:center;gap:3px;padding:2px 4px 2px 7px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap}
+.reflink > .x{border:none;background:none;cursor:pointer;color:var(--accent);opacity:.55;font:700 12px/1 inherit;padding:0 2px}
+.reflink > .x:hover{opacity:1}
+select.cell.picker{min-width:46px;width:46px;padding-right:18px;color:var(--accent);cursor:pointer}
+tr.subrow > td{border-top:none;padding-top:0;padding-bottom:2px;background:var(--panel-2)}
+tr.row + tr.subrow > td{padding-top:7px}   /* row 1 ends in selects; the labels below need a little air */
+/* the first row of a block is its header line — a shade darker than the three that hang off it */
+tr.row > td{border-top:2px solid var(--line);background:var(--row-head)}
+tbody tr:first-child > td{border-top:none}
+tr.subrow > td:nth-child(3){border-left:2px solid var(--line-2)}
+tr.subrow:last-of-type > td{padding-bottom:9px}
+tr.row:hover > td{background:var(--mut-bg)}
+tr.row:hover + tr.subrow > td{background:var(--panel)}
+tr.subrow .field{gap:3px;margin:2px 0 6px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* both rows share one template, so Stimulus lines up under Judged by at the same width;
+   the right-hand field hugs the right edge so the two line up there too */
+.pair2{display:grid;grid-template-columns:2fr 1fr;gap:12px;align-items:start}
+tr.subrow > td > .field{margin-right:12px}
+.togs{display:flex;flex-wrap:wrap;gap:4px;padding:3px 0}
+.tog{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 9px;
+  font:600 11px/1 var(--mono);color:var(--mut);cursor:pointer}
+.tog:hover{border-color:var(--accent);color:var(--accent)}
+.tog.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.headfilter{display:inline-flex;align-items:center;gap:5px}
+.headfilter > b{font-size:9.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+select.cell.mini.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+tr.subrow .field > label{font-size:9.5px;letter-spacing:.06em}
+.cell.boxed{border-color:var(--line-2);min-height:32px;padding:6px 8px;line-height:1.5}
+.cell.boxed:hover{border-color:var(--line)}
+tr.subrow .noteline{display:flex;align-items:center;gap:8px}
+/* the notes-row buttons line up with the Verified by column's left edge, not the row's right end
+   (td.actions is right-aligned everywhere else, and width:1% would shrink the cell away here) */
+tr.subrow > td.actions{padding-top:0;text-align:left;width:auto}
+td.ctr{text-align:center}
+input.chk.rowsel{margin-right:2px}
+input.chk{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;margin:0}
+td.gripcell{padding:4px 0 4px 4px;width:1%;white-space:nowrap;vertical-align:middle}
+tr.subrow .noteline > b{font-size:9.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+tr.subrow .noteline > .cell{flex:1}
+.foldbox > .sug-fold + .sug-fold{margin-top:6px}
+.grip{cursor:grab;color:var(--mut);opacity:.5;padding:0 3px;font-size:13px;line-height:1;user-select:none}
+.grip:hover{opacity:1}
+.grip:active{cursor:grabbing}
+/* a snapshot (Save As copy) is read-only: every control that would change content disappears;
+   state-bearing controls (selects, checkboxes, link chips) stay visible but inert */
+#app.snap .grip,#app.snap #dirty,
+#app.snap [data-act="add"],#app.snap [data-act="del"],#app.snap [data-act="dup"],
+#app.snap [data-act="renumber"],#app.snap [data-act="sug-accept"],#app.snap [data-act="sug-reject"],
+#app.snap [data-act="sug-reopen"]{display:none!important}
+tr.row.dragging{opacity:.4}
+tr.row.drop-before > td{box-shadow:inset 0 2px 0 0 var(--accent)}
+tr.row.drop-after  > td{box-shadow:inset 0 -2px 0 0 var(--accent)}
+.cell.mini{padding:2px 6px;min-height:22px;font-size:12.5px}
+/* .cell.mini (two classes) outranks select.cell (one class + element), so its 6px padding was
+   winning and the arrow was drawn straight over the text. Restore room for the arrow here. */
+select.cell.mini{background-position:calc(100% - 12px) 9px,calc(100% - 8px) 9px;
+  padding-right:22px;min-width:96px}
+.cell.t-ip{font-weight:650;font-size:17px;line-height:1.3;letter-spacing:-.01em;padding:1px 7px;background:transparent}
+.cell.t-ip:hover{background:var(--panel-2)}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 11px;border-radius:6px;
+  font-weight:500;font-size:12.5px;line-height:1.4;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+.btn.sm{padding:3px 8px;font-size:11.5px}
+.btn.icon{padding:3px 7px;color:var(--mut)}
+.dirty{font:600 11px/1 var(--mono);color:var(--warn);background:var(--warn-bg);padding:4px 7px;border-radius:5px;visibility:hidden}
+.dirty.on{visibility:visible}
+.savetgt{font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.savetgt.warn{color:var(--warn)}
+.tabs{display:flex;gap:2px;margin-top:12px;overflow-x:auto}
+.tab{padding:8px 13px;border:none;background:none;color:var(--ink-2);font-weight:500;font-size:13px;line-height:1;cursor:pointer;
+  border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab .cnt{font:400 11px var(--mono);color:var(--mut);margin-left:5px}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-top:16px;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-2);background:var(--panel-2)}
+.panel-head h2{margin:0;font-size:13px;font-weight:650;letter-spacing:.01em}
+.panel-head .hint{font-size:11.5px;color:var(--mut)}
+.panel-body{padding:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field > label{font-weight:600;font-size:11px;line-height:1.3;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.field .sub{font-size:11px;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0}
+
+/* ---------- editable cells ---------- */
+.cell{border:1px solid transparent;border-radius:5px;padding:4px 6px;min-height:26px;background:var(--panel-2);
+  white-space:pre-wrap;word-break:break-word;outline:none}
+.cell:hover{border-color:var(--line)}
+.cell:focus{border-color:var(--accent);background:var(--panel);box-shadow:0 0 0 3px var(--accent-soft)}
+.cell:empty::before{content:attr(data-ph);color:var(--mut);opacity:.75}
+.cell.mono{font-family:var(--mono);font-size:12.5px}
+.cell.id{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);background:transparent}
+select.cell{appearance:none;padding-right:20px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);
+  background-position:calc(100% - 12px) 11px,calc(100% - 8px) 11px;background-size:4px 4px;background-repeat:no-repeat;
+  font:inherit;color:inherit;cursor:pointer}
+select.cell:focus{box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse}
+thead th{vertical-align:top;background:var(--mut-bg);border-bottom:2px solid var(--line);
+  padding-top:8px;padding-bottom:7px}
+th{text-align:left;font-weight:700;font-size:11.5px;line-height:1.3;color:var(--ink-2);text-transform:uppercase;letter-spacing:.07em;
+  padding:8px 8px;border-bottom:1px solid var(--line);background:var(--panel-2);position:sticky;top:0}
+td{padding:4px 6px;vertical-align:top}   /* no per-row rule: blocks are separated by tr.row's top border */
+td.actions{white-space:nowrap;text-align:center;width:1%}
+th.th-confirm{text-align:center}
+.idbtns{display:flex;gap:3px;margin-top:3px;padding-left:4px}
+#app.snap .idbtns{display:none}
+select.thfilter{display:block;margin-top:3px;width:100%;font:inherit;font-size:10px;text-transform:none;
+  letter-spacing:0;color:var(--ink-2);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+select.thfilter.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--accent)}
+.scaret{margin-left:4px;font-size:8px;color:var(--accent)}
+th > input.newopt{margin-left:6px;width:52px;border:1px solid var(--line);border-radius:4px;background:var(--panel);
+  font:inherit;font-size:9.5px;padding:2px 4px;text-transform:none;letter-spacing:0;color:var(--ink)}
+th > input.newopt:focus{border-color:var(--accent);outline:none}
+.tbl-wrap{overflow-x:auto}
+.tbl-wrap > table{min-width:1120px}
+th{white-space:nowrap}
+.cell.id{white-space:nowrap}
+.cell.nw{white-space:nowrap}
+
+/* ---------- expandable detail ---------- */
+.exp{cursor:pointer;user-select:none;color:var(--mut);font:600 13px/1.6 var(--mono);width:1%;padding:4px 2px 4px 8px}
+.exp:hover{color:var(--accent)}
+tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px solid var(--line)}
+.sub-panel{border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:10px 12px;margin-top:10px}
+.sub-panel > h4{margin:0 0 8px;font-weight:600;font-size:11px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
+  display:flex;align-items:center;gap:8px}
+
+/* ---------- badges ---------- */
+.badge{display:inline-block;padding:2px 7px;border-radius:99px;font:600 10.5px/1.6 var(--mono);letter-spacing:.02em}
+.b-ok{background:var(--ok-bg);color:var(--ok)} .b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-err{background:var(--err-bg);color:var(--err)} .b-mut{background:var(--mut-bg);color:var(--mut)}
+.b-acc{background:var(--accent-soft);color:var(--accent)}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{border:1px solid var(--line);border-radius:6px;padding:8px 12px;background:var(--panel-2);min-width:96px}
+.stat .n{font:650 19px/1.2 var(--mono)} .stat .l{font-size:11px;color:var(--mut)}
+
+/* ---------- misc ---------- */
+.chips{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.note{font-size:12px;color:var(--mut);margin:0 0 10px}
+.lintbox{margin-top:16px}
+/* ---------- suggestion cards ---------- */
+.sug{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);margin-bottom:12px;overflow:hidden}
+.sug.done{opacity:.62}
+.sug-head{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--panel-2);border-bottom:1px solid var(--line-2);flex-wrap:wrap}
+.sug-head .sid{font:600 12px/1 var(--mono);color:var(--accent)}
+.sug-body{padding:12px 13px;display:grid;gap:11px}
+.sug-name{font-size:14.5px;font-weight:640;letter-spacing:-.01em}
+.evi{border-left:3px solid var(--accent);background:var(--panel-2);border-radius:0 6px 6px 0;padding:8px 11px;display:grid;gap:5px}
+.evi-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;font-size:11px;line-height:1.3;color:var(--mut)}
+.evi-q{font-size:12.5px;font-style:italic;color:var(--ink-2);border-left:2px solid var(--line);padding-left:9px}
+.evi a{color:var(--accent);text-decoration:none;font-weight:600;font-size:11.5px}
+.evi a:hover{text-decoration:underline}
+.why{font-size:12.5px;color:var(--ink-2)}
+.why > b{color:var(--mut);font-weight:600;font-size:10.5px;line-height:1;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}
+.sug-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.sug-wide{display:grid;gap:10px}
+.filterbar{display:flex;gap:6px;align-items:center}
+.lint-sec{margin-bottom:14px}
+.lint-sec:last-child{margin-bottom:0}
+.lint-sec-head{display:flex;align-items:center;gap:7px;padding:5px 0 6px;border-bottom:2px solid var(--line)}
+.lint-group{display:flex;gap:9px;padding:7px 0 7px 6px;border-bottom:1px solid var(--line-2);align-items:flex-start}
+.lint-sec > .lint-group:last-child{border-bottom:none}
+.lg-body{flex:1;min-width:0}
+.lg-title{font-size:12.5px;font-weight:400;margin-bottom:5px}
+.scope{font-weight:800;font-size:10px;line-height:1.4;text-transform:uppercase;letter-spacing:.12em;margin-right:6px}
+.s-feature,.s-item,.s-plan{color:var(--ink-2)}
+.lg-n{color:var(--mut);font-weight:600}
+.lg-title .hint{font-weight:400;margin-left:6px}
+.lint-item{display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:12.5px;align-items:baseline}
+.lint-item:last-child{border-bottom:none}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:9px 16px;border-radius:7px;font-size:13px;z-index:200;opacity:0;transition:opacity .18s;pointer-events:none}
+.toast.on{opacity:1}
+@media print{.topbar,.actions,.btn,.exp{display:none!important} .panel{break-inside:avoid} body{background:#fff}}
+</style>
+</head>
+<body>
+
+<script id="vplan-data" type="application/json">
+{
+  "$schema": "vplan/1.0",
+  "$enums": {
+    "priority": [
+      "P0",
+      "P1",
+      "P2",
+      "P3"
+    ],
+    "category": [
+      "command",
+      "behavior",
+      "parameter"
+    ],
+    "status": [
+      "not started",
+      "editing",
+      "finalized"
+    ],
+    "implemented": [
+      "todo",
+      "wip",
+      "done"
+    ],
+    "phase": [
+      "pre-Alpha",
+      "Alpha",
+      "Beta"
+    ],
+    "reject_kind": [
+      "hallucinated",
+      "duplicated",
+      "waived"
+    ],
+    "stimulus": [
+      "directed",
+      "random"
+    ],
+    "judged_by": [
+      "vip",
+      "sva",
+      "test/seq",
+      "scoreboard",
+      "ref-model"
+    ],
+    "test_type": [
+      "smoke",
+      "directed",
+      "random",
+      "error_injection",
+      "stress",
+      "performance",
+      "power",
+      "reset"
+    ],
+    "check_type": [
+      "scoreboard",
+      "assertion",
+      "register",
+      "sideband",
+      "protocol_vip",
+      "reference_model",
+      "manual"
+    ]
+  },
+  "meta": {
+    "ip_name": "",
+    "uarch": "",
+    "ref_model": "",
+    "csr": "",
+    "owner": "",
+    "status": "draft",
+    "phase": "pre-Alpha",
+    "last_updated": ""
+  },
+  "features": [],
+  "items": [],
+  "testcases": [],
+  "coverage": {
+    "functional": [],
+    "code": {
+      "line_target": 100,
+      "branch_target": 100,
+      "toggle_target": 95,
+      "fsm_target": 100,
+      "exclusion_policy": "Exclusions require an el file entry with a justification comment and DV-lead sign-off. No blanket module exclusions."
+    },
+    "assertions": [],
+    "signoff_criteria": "Code coverage targets met, all functional covergroups at target, 0 open P0/P1 bugs, regression green for 2 consecutive runs, all coverage exclusions signed off."
+  },
+  "suggestions": []
+}
+</script>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================================
+   vplan renderer / editor.  Source of truth = #vplan-data JSON.
+   ==========================================================================*/
+"use strict";
+
+let DATA = JSON.parse(document.getElementById('vplan-data').textContent);
+let TAB  = 'features';
+const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
+let OPEN = new Set();          // expanded testcase ids
+let DIRTY = false;
+
+const E   = DATA.$enums;
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $   = s => document.querySelector(s);
+
+function get(path){ return path.split('.').reduce((o,k)=>(o==null?o:o[k]), DATA); }
+function set(path,val){
+  const ks=path.split('.'), last=ks.pop();
+  let o=DATA; for(const k of ks) o=o[k];
+  o[last]=val; markDirty();
+}
+function markDirty(){ DIRTY=true; const d=$('#dirty'); if(d) d.classList.add('on'); }
+function markClean(){ DIRTY=false; const d=$('#dirty'); if(d) d.classList.remove('on'); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),1900); }
+
+/* ---- editable widgets ------------------------------------------------- */
+function cell(path,{ph='',cls='',kind='text'}={}){
+  let v = get(path);
+  if(kind==='csv') v = Array.isArray(v)? v.join(', ') : (v||'');
+  return `<div class="cell ${cls}" contenteditable="${isSnapshot()?'false':'plaintext-only'}" spellcheck="false"
+            data-path="${path}" data-kind="${kind}" data-ph="${esc(ph)}">${esc(v)}</div>`;
+}
+function sel(path,opts,{cls=''}={}){
+  const v = get(path);
+  const o = opts.map(x=>`<option value="${esc(x)}"${x===v?' selected':''}>${esc(x)}</option>`).join('');
+  const extra = opts.includes(v)?'':`<option value="${esc(v)}" selected>${esc(v)}</option>`;
+  return `<select class="cell ${cls}"${isSnapshot()?' disabled':''} data-path="${path}" data-kind="select">${extra}${o}</select>`;
+}
+function field(label,inner,sub){
+  return `<div class="field"><label>${esc(label)}${sub?` <span class="sub">${esc(sub)}</span>`:''}</label>${inner}</div>`;
+}
+function statusBadge(v){
+  const m={passing:'b-ok',coded:'b-acc',in_progress:'b-warn',failing:'b-err',blocked:'b-err',waived:'b-mut',planned:'b-mut',
+           closed:'b-ok',open:'b-warn',in_review:'b-warn',high:'b-err',med:'b-warn',low:'b-mut'};
+  return `<span class="badge ${m[v]||'b-mut'}">${esc(v)}</span>`;
+}
+/* The link between a feature and a verification item is stored once, on items[].feature_refs.
+   Both tables edit that same list — the feature side just writes it from the other end. */
+/* a fixed, short option set: show every option and let a click toggle it — no hidden state, no popup */
+function togChips(path,values,cur){
+  const on=new Set(cur||[]);
+  return `<div class="togs">${values.map(v=>`<button class="tog${on.has(v)?' on':''}" data-act="tog"
+    data-path="${path}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
+}
+function refChips(kind,ownerId,ids){
+  if(!ids.length) return `<span class="badge b-mut">none</span>`;
+  return ids.map(id=>`<span class="reflink">${esc(id)}<button class="x" data-act="unlink" data-kind="${kind}"
+      data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button></span>`).join('');
+}
+function linkPicker(kind,ownerId,rows,label){
+  if(!rows.length || isSnapshot()) return '';   // read-only snapshot: no way to add a link
+  return `<select class="cell mini picker" data-pick="${kind}" data-owner="${esc(ownerId)}">
+      <option value="">${esc(label)}</option>
+      ${rows.map(r=>`<option value="${esc(r.id)}">${esc(r.id)}${r.name?' · '+esc(r.name.slice(0,28)):''}</option>`).join('')}
+    </select>`;
+}
+function setLink(featureId,itemId,on){
+  const it=DATA.items.find(x=>x.id===itemId); if(!it) return;
+  const refs=new Set(it.feature_refs||[]);
+  on?refs.add(featureId):refs.delete(featureId);
+  it.feature_refs=[...refs];
+}
+/* The category list is one shared enum. It is edited where it is used — type a name in the column
+   header and press Enter — so a new classification never needs a trip into the JSON. */
+/* Sorting rewrites the array, it does not just reorder the view — in this file the array order IS the
+   order on screen (that is what drag-to-reorder edits), so a sorted view that disagreed with it would
+   make a drop land somewhere else. Enum columns sort by the order declared in $enums, not alphabetically. */
+const SORT={};
+/* Category / Phase / Definition are filters, not sorts: pick a value and only those rows render.
+   Rows keep their real array index so every data-path still points at the right record. */
+const FILTER={};
+function filterOf(arrPath){ return FILTER[arrPath]||(FILTER[arrPath]={}); }
+function rowsOf(arrPath){
+  const f=filterOf(arrPath);
+  return (get(arrPath)||[]).map((r,i)=>({r,i})).filter(({r})=>{
+    if(!['category','phase','status'].every(k=>!f[k]||r[k]===f[k])) return false;
+    if(f.vref){                       // features, filtered by the item that verifies them
+      const linked=DATA.items.filter(it=>(it.feature_refs||[]).includes(r.id)).map(it=>it.id);
+      return f.vref==='__none__' ? !linked.length : linked.includes(f.vref);
+    }
+    if(f.fref){                       // items, filtered by the feature they belong to
+      const refs=r.feature_refs||[];
+      return f.fref==='__none__' ? !refs.length : refs.includes(f.fref);
+    }
+    return true;
+  });
+}
+function filterTh(label,arrPath,key,enumKey,style){
+  return filterThList(label,arrPath,key,(DATA.$enums[enumKey]||[]).map(v=>[v,v]),style);
+}
+function filterThList(label,arrPath,key,pairs,style){
+  const cur=filterOf(arrPath)[key]||'';
+  const opts=pairs.map(([v,t])=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('');
+  return `<th style="${style}">${label}
+    <select class="thfilter${cur?' on':''}" data-filter="${arrPath}" data-key="${key}">
+      <option value="">all</option>${opts}</select></th>`;
+}
+function headFilter(label,arrPath,key,pairs){
+  const cur=filterOf(arrPath)[key]||'';
+  return `<span class="headfilter"><b>${esc(label)}</b>
+    <select class="cell mini${cur?' on':''}" data-filter="${arrPath}" data-key="${key}">
+      <option value="">all</option>
+      ${pairs.map(([v,t])=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`).join('')}
+    </select></span>`;
+}
+function filterNote(arrPath){
+  const f=filterOf(arrPath), on=Object.keys(f).filter(k=>f[k]);
+  if(!on.length) return '';
+  return `<button class="btn sm" data-act="filter-clear" data-arr="${arrPath}">clear filter</button>
+    <span class="badge b-warn">filtered: ${rowsOf(arrPath).length} / ${(get(arrPath)||[]).length}</span>`;
+}
+function sortTh(label,arrPath,key,style){
+  const st=SORT[arrPath]||{};
+  const caret=st.key===key?(st.dir>0?'▲':'▼'):'';
+  return `<th style="${style}" class="sortable" data-act="sort" data-arr="${arrPath}" data-key="${key}">${label}<span class="scaret">${caret}</span></th>`;
+}
+function sortRows(arrPath,key){
+  const arr=get(arrPath); if(!Array.isArray(arr)) return;
+  const st=SORT[arrPath]||(SORT[arrPath]={key:null,dir:1});
+  st.dir=st.key===key?-st.dir:1; st.key=key;
+  const rank=(enumKey,v)=>{ const e=DATA.$enums[enumKey]||[]; const i=e.indexOf(v); return i<0?e.length:i; };
+  const val=r=>{
+    if(key==='id') return String(r.id||'').padStart(12,'0');
+    if(key==='category') return String(rank('category',r.category)).padStart(3,'0');
+    if(key==='phase') return String(rank('phase',r.phase)).padStart(3,'0');
+    if(key==='status') return String(rank('status',r.status)).padStart(3,'0');
+    return '';
+  };
+  arr.sort((a,b)=>{
+    const x=val(a),y=val(b);
+    if(x!==y) return (x<y?-1:1)*st.dir;
+    return String(a.id||'').localeCompare(String(b.id||''))*st.dir;   // stable tiebreak
+  });
+  markDirty(); render();
+}
+function catHead(){
+  return `Category<input class="newopt" data-newopt="category" placeholder="+ add" title="이름을 쓰고 Enter">`;
+}
+function rowGrip(arrPath,i){
+  return `<span class="grip" draggable="true" data-arr="${arrPath}" data-i="${i}" title="드래그해서 순서 이동">⠿</span>`;
+}
+/* One checkbox per row — the Confirmed column. It still writes `reviewed`: renaming the field would
+   ripple through the schema and every existing plan for a label's sake. */
+function confirmCk(arrPath,i){
+  const reviewed=((get(arrPath)||[])[i]||{}).reviewed;
+  return `<input type="checkbox" class="chk rowsel"${isSnapshot()?' disabled':''} data-path="${arrPath}.${i}.reviewed"${reviewed?' checked':''} title="확정">`;
+}
+/* dup/del live under the ID value in the Features / Verification Items tables. */
+function rowDupDel(arrPath,i){
+  return `<button class="btn icon" data-act="dup" data-arr="${arrPath}" data-i="${i}" title="복제">⧉</button>
+    <button class="btn icon" data-act="del" data-arr="${arrPath}" data-i="${i}" title="삭제">✕</button>`;
+}
+/* testcases / coverage rows keep the old combined trailing cell: grip + checkbox + dup/del. */
+function rowCtrls(arrPath,i){ return rowGrip(arrPath,i)+confirmCk(arrPath,i)+rowDupDel(arrPath,i); }
+function rowBtns(arrPath,i){ return `<td class="actions">${rowCtrls(arrPath,i)}</td>`; }
+function addBtn(arrPath,kind,label){ return `<button class="btn sm" data-act="add" data-arr="${arrPath}" data-kind="${kind}">+ ${esc(label)}</button>`; }
+
+/* ---- shell ------------------------------------------------------------ */
+const TABS=[
+  ['features','Features',   ()=>DATA.features.length],
+  ['items','Verification Items',()=>DATA.items.length],
+  ['testcases','Testcases <span class="tbd">[TBD]</span>', ()=>DATA.testcases.length],
+  ['coverage','Coverage <span class="tbd">[TBD]</span>',()=>DATA.coverage.functional.length+DATA.coverage.assertions.length],
+];
+
+function render(){
+  $('#app').classList.toggle('snap',isSnapshot());   // read-only dress: CSS hides every mutating control
+  const tabs=TABS.map(([k,l,c])=>{const n=c();return `<button class="tab${TAB===k?' active':''}" data-tab="${k}">${l}${n!=null?`<span class="cnt">${n}</span>`:''}</button>`}).join('');
+  $('#app').innerHTML=`
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="title">${cell('meta.ip_name',{cls:'t-ip',ph:'IP_NAME'})}
+        <span class="ver">Verification Plan · ${esc(DATA.$schema)}</span></div>
+      <span class="dirty" id="dirty">UNSAVED</span>
+      <div class="spacer"></div>
+      <button class="btn" data-act="renumber" title="ID를 목록 순서대로 다시 부여하고 참조를 함께 고칩니다">Refresh</button>
+      <button class="btn" data-act="lint">Lint</button>
+      <button class="btn" data-act="json">Export JSON</button>
+      <button class="btn" data-act="yaml">Export YAML</button>
+      <span class="savetgt" id="save-target" title="${isSnapshot()?'이 스냅샷이 저장된 시각':'Save가 덮어쓸 파일'}"></span>${isSnapshot()?'':`
+      <button class="btn" data-act="load" title="스냅샷 파일을 불러와 화면에 올립니다 — 파일에 반영하려면 Save">Load</button>
+      <button class="btn" data-act="save-as" title="지금 상태를 날짜 찍힌 스냅샷 사본으로 저장합니다 (원본은 그대로 Save 대상)">Save As</button>
+      <button class="btn primary" data-act="save" title="대화상자 없이 바로 저장합니다 (원본 파일에 바로 씀)">Save</button>`}
+    </div>
+    <div class="metastrip">
+      <span class="ms-item"><b>owner</b>${cell('meta.owner',{cls:'mini',ph:'—'})}</span>
+      <span class="ms-item"><b>status</b>${sel('meta.status',['draft','in_review','approved','frozen'],{cls:'mini'})}</span>
+      <span class="ms-item"><b>phase</b>${sel('meta.phase',E.phase,{cls:'mini'})}</span>
+      <span class="ms-item"><b>updated</b>${cell('meta.last_updated',{cls:'mono mini',ph:'YYYY-MM-DD'})}</span>
+    </div>
+    <div class="srchead">Input Source</div>
+    <div class="srcbox">
+      <span class="src-k">uArch</span>${cell('meta.uarch',{cls:'mono mini src-v',ph:'https://…'})}${/^https?:\/\//.test(DATA.meta.uarch||'')?`<a class="src-go" href="${esc(DATA.meta.uarch)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
+      <span class="src-k">Ref-Model</span>${cell('meta.ref_model',{cls:'mono mini src-v',ph:'ref-model 경로'})}${/^https?:\/\//.test(DATA.meta.ref_model||'')?`<a class="src-go" href="${esc(DATA.meta.ref_model)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
+      <span class="src-k">CSR</span>${cell('meta.csr',{cls:'mono mini src-v',ph:'SFR 엑셀 경로 (.xlsx) — 아직 없음'})}${/^https?:\/\//.test(DATA.meta.csr||'')?`<a class="src-go" href="${esc(DATA.meta.csr)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
+    </div>
+    <div class="tabs">${tabs}</div>
+  </div>
+  <div id="tabbody">${VIEW[TAB]()}</div>`;
+  refreshTarget();
+}
+
+/* The label where the buttons live: a snapshot says exactly when it was saved; the original says
+   nothing at all — Save always lands on its own file, so there is nothing to announce. */
+function refreshTarget(){
+  const el=$('#save-target'); if(!el) return;
+  el.textContent = (DATA.meta&&DATA.meta.snapshot) ? '저장됨: '+DATA.meta.snapshot.at : '';
+}
+
+const VIEW={};
+
+/* ---- features --------------------------------------------------------- */
+VIEW.features=()=>{
+  const covered = new Set(DATA.items.flatMap(it=>it.feature_refs||[]));
+  return `
+
+  <div class="panel"><div class="panel-head"><h2>Feature list</h2>${addBtn('features','feature','feature')}${filterNote('features')}
+    <div class="spacer"></div>
+    ${headFilter('verified by','features','vref',[['__none__','— none —']].concat(DATA.items.map(it=>[it.id,it.id])))}</div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th style="width:26px"></th>${sortTh('ID','features','id','width:52px')}${filterTh(catHead(),'features','category','category','width:170px')}<th>Feature</th>${filterTh('Phase','features','phase','phase','width:150px')}
+    ${filterTh('Definition','features','status','status','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
+  </tr></thead><tbody>
+  ${rowsOf('features').map(({r:f,i})=>{
+    const vis=DATA.items.filter(it=>(it.feature_refs||[]).includes(f.id)).map(it=>it.id);
+    return `<tr class="row">
+    <td class="gripcell">${rowGrip('features',i)}</td>
+    <td>${cell(`features.${i}.id`,{cls:'id'})}</td>
+    <td>${sel(`features.${i}.category`,E.category)}</td>
+    <td>${cell(`features.${i}.name`)}</td>
+    <td>${sel(`features.${i}.phase`,E.phase,{cls:'phase'})}</td>
+    <td>${sel(`features.${i}.status`,E.status)}</td>
+    <td class="actions">${confirmCk('features',i)}</td></tr>
+    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('features',i)}</div></td>
+      <td colspan="5">${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
+        ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="5">${field('Notes',cell(`features.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`}).join('')}
+  </tbody></table></div></div>
+  ${sugPanel('feature')}`;
+};
+
+/* ---- suggestions (AI proposes, human disposes) ------------------------- */
+/* The agent inbox. It lives at the bottom of the tab it feeds — feature cards under Features,
+   item cards under Verification Items — so a proposal is read next to what it would join.
+   Accepted and rejected cards are never dropped. They fold into their own sections and stay in the
+   file: a rejection carries the reason that stops the same proposal coming back next run. */
+const REJECT_WHY={
+  duplicated:'Right, but the plan already has it — my matching was too loose.',
+  hallucinated:'The claim itself does not hold — my extraction or quote was wrong.',
+  waived:'Right and in scope, but we are choosing not to verify it.',
+};
+function sugCard(s,all,kind,what){
+  const i=all.indexOf(s), p=`suggestions.${i}`, done=s.status!=='pending';
+  const cb={high:'b-ok',med:'b-warn',low:'b-mut'}[s.confidence]||'b-mut';
+  const sb={pending:'b-warn',accepted:'b-ok',rejected:'b-mut'}[s.status]||'b-mut';
+  const src=s.source||{};
+  return `<div class="sug${done?' done':''}">
+      <div class="sug-head">
+        <span class="sid">${esc(s.sid)}</span>
+        <span class="badge ${sb}">${esc(s.status)}</span>
+        ${s.status==='rejected'&&s.reject_kind?`<span class="badge b-err" title="${esc(REJECT_WHY[s.reject_kind]||'')}">${esc(s.reject_kind)}</span>`:''}
+        <span class="badge ${cb}">confidence ${esc(s.confidence||'?')}</span>
+        <span class="hint">${esc(s.created||'')}</span>
+        <div class="spacer"></div>
+        ${done
+          ? `<button class="btn sm" data-act="sug-reopen" data-i="${i}">Reopen</button>`
+          : `<button class="btn sm primary" data-act="sug-accept" data-i="${i}">Accept → add ${kind==='item'?'item':'feature'}</button>
+             ${(E.reject_kind||[]).map(k=>`<button class="btn sm" data-act="sug-reject" data-i="${i}" data-k="${k}" title="${esc(REJECT_WHY[k]||'')}">${esc(k[0].toUpperCase()+k.slice(1))}</button>`).join('')}`}
+      </div>
+      <div class="sug-body">
+        <div class="sug-name">${cell(`${p}.payload.name`,{ph:`${what} name`})}</div>
+
+        <div class="evi">
+          <div class="evi-top">
+            <span>${esc(src.doc||'source unknown')}</span>
+            ${src.section?`<span class="badge b-acc">§ ${esc(src.section)}</span>`:''}
+            ${src.url?`<a href="${esc(src.url)}" target="_blank" rel="noopener">Open in MAS ↗</a>`:''}
+          </div>
+          ${src.quote?`<div class="evi-q">"${esc(src.quote)}"</div>`:''}
+        </div>
+
+        <div class="why"><b>why</b>${esc(s.rationale||'')}</div>
+
+        <div class="sug-wide">${field('Description',cell(`${p}.payload.description`))}</div>
+        <div class="sug-fields">
+          ${field('Category',sel(`${p}.payload.category`,E.category))}
+          ${kind==='item'
+            ? `${field('Link to',cell(`${p}.payload.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'}))}
+               ${field('Oracle',cell(`${p}.payload.oracle`,{ph:'what the result is compared against'}))}
+               ${field('Stimulus',sel(`${p}.payload.stimulus`,E.stimulus))}
+               ${field('Judged by',togChips(`${p}.payload.judged_by`,E.judged_by,s.payload&&s.payload.judged_by))}
+               ${field('Phase',sel(`${p}.payload.phase`,E.phase))}`
+            : field('Phase',sel(`${p}.payload.phase`,E.phase))}
+        </div>
+        <div class="sug-wide">${field('Notes',cell(`${p}.payload.notes`))}</div>
+        ${s.status==='rejected'?`<div class="sug-wide">${field('Reject note (optional)',cell(`${p}.reject_reason`,{ph:'e.g. F06 already covers it / PREFETCH_EN=0 in r1p2'}),'Claude reads this next run')}</div>`:''}
+        ${s.status==='accepted'&&s.accepted_as?`<div class="why"><b>accepted as</b><span class="badge b-acc">${esc(s.accepted_as)}</span></div>`:''}
+      </div></div>`;
+}
+function sugPanel(kind){
+  const all=DATA.suggestions||[];
+  const mine=all.filter(s=>(s.kind||'feature')===kind);
+  const g={pending:[],accepted:[],rejected:[]};
+  mine.forEach(s=>(g[s.status]||g.pending).push(s));
+  const what=kind==='item'?'verification item':'feature';
+  const dest=kind==='item'?'the Verification items list':'the Feature list';
+  const fold=(name,label)=>{
+    const rows=g[name]; if(!rows.length) return '';
+    const key=`${kind}:${name}`, open=SUGOPEN.has(key);
+    const tally=name==='rejected'
+      ? (E.reject_kind||[]).filter(k=>rows.some(r=>r.reject_kind===k))
+          .map(k=>`<span class="badge b-mut">${esc(k)} ${rows.filter(r=>r.reject_kind===k).length}</span>`).join('')
+      : '';
+    return `<div class="sug-fold" data-act="sug-group" data-g="${key}">
+        <span class="caret">${open?'▾':'▸'}</span><b>${label}</b>
+        <span class="badge b-mut">${rows.length}</span>${tally}
+        <span class="hint">${open?'click to fold':'kept in the file — click to open'}</span>
+      </div>${open?rows.map(s=>sugCard(s,all,kind,what)).join(''):''}`;
+  };
+  /* Rejected sits ABOVE the inbox: it is a record of the plan (what was deliberately left out),
+     not a leftover of the proposal queue — and it stays reachable without scrolling past every card. */
+  return `
+  ${g.rejected.length||g.accepted.length?`<div class="foldbox">${fold('rejected','Rejected — deliberately not planned')}${fold('accepted','Accepted — already in the plan')}</div>`:''}
+  <p class="note">Proposals only — Claude Code reads the MAS and drafts the ${what}s it finds missing, but never
+     writes into the plan. Check a card's quote, edit any field, then <b>Accept</b> to add it to ${dest}.
+     Decided cards stay on record: accepted fold in below, rejected above.</p>
+  <div class="panel"><div class="panel-head"><h2>Suggestions from AI</h2>
+    <div class="chips">
+      <span class="badge ${g.pending.length?'b-warn':'b-mut'}">${g.pending.length} pending</span>
+      <span class="badge b-ok">${g.accepted.length} accepted</span>
+      <span class="badge b-mut">${g.rejected.length} rejected</span>
+    </div></div>
+  <div class="panel-body">
+  ${g.pending.length?g.pending.map(s=>sugCard(s,all,kind,what)).join('')
+    :`<div class="lint-item"><span class="badge b-ok">OK</span><span>No pending suggestions.</span></div>`}
+  </div></div>`;
+}
+
+/* ---- testcases -------------------------------------------------------- */
+VIEW.testcases=()=>`
+  <div class="panel"><div class="panel-head"><h2>Testcase list</h2>${addBtn('testcases','testcase','testcase')}
+    <div class="chips">${E.status.map(s=>{const n=DATA.testcases.filter(t=>t.status===s).length;
+      return n?`<span class="badge ${({passing:'b-ok',coded:'b-acc',in_progress:'b-warn',failing:'b-err',blocked:'b-err'})[s]||'b-mut'}">${n} ${esc(s)}</span>`:''}).join('')}</div>
+    <span class="hint">${DATA.testcases.reduce((a,t)=>a+(+t.seeds||0),0)} seed-runs total</span></div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th></th><th style="width:60px">ID</th><th style="width:17%">Test name</th><th style="width:90px">Features</th>
+    <th style="width:70px">Pri</th><th style="width:120px">Type</th>
+    <th style="width:130px">Definition</th><th style="width:90px">Owner</th><th style="width:56px">Seeds</th>
+    <th style="width:30%">Description</th><th></th>
+  </tr></thead><tbody>
+  ${DATA.testcases.map((t,i)=>{
+    const open=OPEN.has(t.id);
+    return `<tr class="row" data-tcrow="${t.id}">
+      <td class="exp" data-act="toggle" data-id="${t.id}">${open?'▾':'▸'}</td>
+      <td>${cell(`testcases.${i}.id`,{cls:'id'})}</td>
+      <td>${cell(`testcases.${i}.name`,{cls:'mono'})}</td>
+      <td>${cell(`testcases.${i}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'})}</td>
+      <td>${sel(`testcases.${i}.priority`,E.priority)}</td>
+      <td>${sel(`testcases.${i}.type`,E.test_type)}</td>
+      <td>${sel(`testcases.${i}.status`,E.status)}</td>
+      <td>${cell(`testcases.${i}.owner`,{cls:'nw'})}</td>
+      <td>${cell(`testcases.${i}.seeds`,{cls:'mono nw'})}</td>
+      <td>${cell(`testcases.${i}.description`)}</td>
+      ${rowBtns('testcases',i)}</tr>
+      ${open?`<tr class="detail"><td colspan="11">${tcDetail(t,i)}</td></tr>`:''}`;
+  }).join('')}
+  </tbody></table></div></div>`;
+
+function tcDetail(t,i){
+  const p=`testcases.${i}`;
+  return `
+  <div class="grid">
+    ${field('UVM test class',cell(`${p}.uvm.test_class`,{cls:'mono'}),'→ class X extends base')}
+    ${field('Base test',cell(`${p}.uvm.base_test`,{cls:'mono'}))}
+    ${field('Virtual sequence',cell(`${p}.uvm.virtual_sequence`,{cls:'mono'}))}
+    ${field('Dependencies',cell(`${p}.dependencies`,{kind:'csv',cls:'mono',ph:'TC001'}))}
+  </div>
+
+  <div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
+  <table><thead><tr><th style="width:22%">Agent</th><th style="width:28%">Sequence class</th><th>Params</th><th></th></tr></thead><tbody>
+  ${(t.uvm.sequences||[]).map((s,j)=>`<tr class="row">
+    <td>${cell(`${p}.uvm.sequences.${j}.agent`,{cls:'mono'})}</td>
+    <td>${cell(`${p}.uvm.sequences.${j}.seq_class`,{cls:'mono'})}</td>
+    <td>${cell(`${p}.uvm.sequences.${j}.params`,{cls:'mono'})}</td>
+    ${rowBtns(`${p}.uvm.sequences`,j)}</tr>`).join('')}
+  </tbody></table></div>
+
+  <div class="sub-panel"><h4>Config (uvm_config_db / plusargs)</h4><div class="grid">
+    ${Object.keys(t.config||{}).map(k=>field(k,cell(`${p}.config.${k}`,{cls:'mono'}))).join('')}
+  </div></div>
+
+  <div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
+  <table><thead><tr><th style="width:16%">Type</th><th>Description</th><th style="width:22%">Component / ref</th><th></th></tr></thead><tbody>
+  ${(t.checks||[]).map((c,j)=>`<tr class="row">
+    <td>${sel(`${p}.checks.${j}.type`,E.check_type)}</td>
+    <td>${cell(`${p}.checks.${j}.description`)}</td>
+    <td>${cell(`${p}.checks.${j}.ref`,{cls:'mono'})}</td>
+    ${rowBtns(`${p}.checks`,j)}</tr>`).join('')}
+  </tbody></table></div>
+
+  <div class="sub-panel"><div class="grid">
+    ${field('Coverage refs',cell(`${p}.coverage_refs`,{kind:'csv',cls:'mono',ph:'CG01, SVA02'}))}
+    ${field('Pass criteria',cell(`${p}.pass_criteria`))}
+    ${field('TB generation hints',cell(`${p}.tb_gen_hints`),'AI에게 주는 추가 지시')}
+  </div></div>`;
+}
+
+/* ---- coverage --------------------------------------------------------- */
+VIEW.coverage=()=>{
+  const c=DATA.coverage;
+  return `
+  <div class="panel"><div class="panel-head"><h2>Functional coverage</h2>${addBtn('coverage.functional','cg','covergroup')}
+    <span class="hint">covergroup / sample_point / bins → covergroup 스켈레톤 자동 생성</span></div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th style="width:52px">ID</th><th style="width:13%">Covergroup</th><th style="width:17%">Sample point</th><th style="width:25%">Bins</th>
+    <th style="width:74px">Target%</th><th style="width:90px">Features</th><th style="width:110px">Status</th>
+    <th style="width:17%">Notes</th><th></th></tr></thead><tbody>
+  ${c.functional.map((g,i)=>`<tr class="row">
+    <td>${cell(`coverage.functional.${i}.id`,{cls:'id'})}</td>
+    <td>${cell(`coverage.functional.${i}.covergroup`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.functional.${i}.sample_point`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.functional.${i}.bins`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.functional.${i}.target`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.functional.${i}.feature_refs`,{kind:'csv',cls:'mono'})}</td>
+    <td>${sel(`coverage.functional.${i}.status`,['open','closed','waived'])}</td>
+    <td>${cell(`coverage.functional.${i}.notes`)}</td>
+    ${rowBtns('coverage.functional',i)}</tr>`).join('')}
+  </tbody></table></div></div>
+
+  <div class="panel"><div class="panel-head"><h2>Assertions (SVA)</h2>${addBtn('coverage.assertions','sva','assertion')}</div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th style="width:62px">ID</th><th style="width:16%">Name</th><th style="width:18%">Module / bind</th><th style="width:32%">Property</th>
+    <th style="width:110px">Severity</th><th style="width:130px">Definition</th><th style="width:90px">Features</th><th></th></tr></thead><tbody>
+  ${c.assertions.map((a,i)=>`<tr class="row">
+    <td>${cell(`coverage.assertions.${i}.id`,{cls:'id'})}</td>
+    <td>${cell(`coverage.assertions.${i}.name`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.assertions.${i}.module`,{cls:'mono'})}</td>
+    <td>${cell(`coverage.assertions.${i}.property_desc`)}</td>
+    <td>${sel(`coverage.assertions.${i}.severity`,['info','warning','error','fatal'])}</td>
+    <td>${sel(`coverage.assertions.${i}.status`,E.status)}</td>
+    <td>${cell(`coverage.assertions.${i}.feature_refs`,{kind:'csv',cls:'mono'})}</td>
+    ${rowBtns('coverage.assertions',i)}</tr>`).join('')}
+  </tbody></table></div></div>
+
+  <div class="panel"><div class="panel-head"><h2>Code coverage &amp; sign-off</h2></div><div class="panel-body"><div class="grid">
+    ${field('Line %',cell('coverage.code.line_target',{cls:'mono'}))}
+    ${field('Branch %',cell('coverage.code.branch_target',{cls:'mono'}))}
+    ${field('Toggle %',cell('coverage.code.toggle_target',{cls:'mono'}))}
+    ${field('FSM %',cell('coverage.code.fsm_target',{cls:'mono'}))}
+  </div><div style="display:grid;gap:12px;margin-top:12px">
+    ${field('Exclusion policy',cell('coverage.code.exclusion_policy'))}
+    ${field('Verification sign-off criteria',cell('coverage.signoff_criteria'))}
+  </div></div></div>`;
+};
+
+VIEW.items=()=>`
+
+  <div class="panel"><div class="panel-head"><h2>Verification items</h2>${addBtn('items','item','item')}${filterNote('items')}
+    <div class="spacer"></div>
+    ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}</div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}${filterTh(catHead(),'items','category','category','width:170px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
+    ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
+  </tr></thead><tbody>
+  ${rowsOf('items').map(({r:it,i})=>`<tr class="row">
+    <td class="gripcell">${rowGrip('items',i)}</td>
+    <td>${cell(`items.${i}.id`,{cls:'id'})}</td>
+    <td>${sel(`items.${i}.category`,E.category)}</td>
+    <td>${cell(`items.${i}.name`)}</td>
+    <td>${sel(`items.${i}.phase`,E.phase,{cls:'phase'})}</td>
+    <td>${sel(`items.${i}.status`,E.status)}</td>
+    <td>${sel(`items.${i}.implemented`,E.implemented)}</td>
+    <td class="actions">${confirmCk('items',i)}</td></tr>
+    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('items',i)}</div></td>
+      <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
+        ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
+      <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
+      <td colspan="3">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="6">${field('Description',cell(`items.${i}.description`,{cls:'boxed',ph:'what must hold, and how it is judged'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="6">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="6">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
+  </tbody></table></div></div>
+  ${sugPanel('item')}`;
+
+/* ---- row templates ---------------------------------------------------- */
+function nextId(arr,prefix,pad){
+  let n=0; arr.forEach(x=>{const m=String((x&&x.id)||'').match(new RegExp('^'+prefix+'(\\d+)$')); if(m) n=Math.max(n,+m[1]);});
+  return prefix+String(n+1).padStart(pad,'0');
+}
+/* most-used base_test across existing testcases — new testcases inherit it */
+function commonBaseTest(){
+  const tally={};
+  DATA.testcases.forEach(t=>{const b=t.uvm&&t.uvm.base_test; if(b) tally[b]=(tally[b]||0)+1;});
+  return Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0]||'';
+}
+const TEMPLATE={
+  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',judged_by:[],stimulus:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
+  feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
+  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
+    uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
+    config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
+    checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],seeds:1,tb_gen_hints:''}),
+  seq:()=>({agent:'',seq_class:'',params:''}),
+  check:()=>({type:'scoreboard',description:'',ref:''}),
+  cg:a=>({id:nextId(a,'CG',2),covergroup:'',sample_point:'',bins:'',target:100,feature_refs:[],status:'open',notes:''}),
+  sva:a=>({id:nextId(a,'SVA',2),name:'',module:'',property_desc:'',severity:'error',status:'not started',feature_refs:[]}),
+  str:()=>'',
+};
+
+/* ---- lint ------------------------------------------------------------- */
+/* Renumber F##/VI### to match the current list order. Every reference is rewritten in the same pass,
+   from a map captured BEFORE any id changes — so links survive even when ids swap places. */
+function renumberIds(){
+  const map={};
+  const put=(row,nid)=>{ if(row.id&&row.id!==nid) map[row.id]=nid; row.id=nid; };
+  DATA.features.forEach((f,i)=>put(f,'F'+String(i+1).padStart(2,'0')));
+  DATA.items.forEach((it,i)=>put(it,'VI'+String(i+1).padStart(3,'0')));
+  const m=id=>map[id]||id;
+  const remap=a=>(a||[]).map(m);
+  DATA.items.forEach(it=>{ it.feature_refs=remap(it.feature_refs); });
+  DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); });
+  DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
+  DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
+  (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
+  Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
+    ['vref','fref'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
+  });
+  const n=Object.keys(map).length;
+  markDirty(); render();
+  toast(n?`${n} id(s) renumbered — references updated`:'ids already in order');
+}
+function lint(){
+  /* One line per KIND of problem, with every offending id listed on it — a hundred separate lines
+     for the same mistake is unreadable, and the ids are what you act on. */
+  const G=[];
+  const grp=(sev,scope,msg,countOnly)=>{ const x={sev,scope,msg,ids:[],countOnly:!!countOnly}; G.push(x); return x; };
+  const dupId   =grp('err','plan','duplicate id');
+  const noId    =grp('err','plan','row with no id');
+  const dangling=grp('err','plan','reference points at an id that does not exist');
+  /* which phase made these due is on the panel head, so it is not repeated on every line */
+  const unCov   =grp('err','feature','no verification item is linked');
+  const unDef   =grp('err','feature','definition is not finalized');
+  const unRevF  =grp('err','feature','Confirmed is not ticked');
+  const gapF    =grp('warn','feature','some fields are still empty');
+  const itemNoF =grp('warn','item','no feature is linked');
+  const itemUnD =grp('err','item','definition is not finalized');
+  const itemUnI =grp('err','item','implemented is not done');
+  const unRevI  =grp('err','item','Confirmed is not ticked');
+  const gapI    =grp('warn','item','some fields are still empty');
+  const tcNoCls =grp('err','plan','testcase has no uvm.test_class');
+  const tcNoChk =grp('err','plan','testcase has no checks');
+  const tcNoSeq =grp('warn','plan','testcase has no sequence');
+  const tcNoSeed=grp('warn','plan','testcase has no seeds');
+  const cgNoRef =grp('warn','plan','covergroup has no feature');
+  const svaNoMod=grp('warn','plan','assertion has no bind module');
+  const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
+  const sugNoLbl=grp('warn','plan','rejection has no label (duplicated / hallucinated / waived)');
+  const sugNoQ  =grp('warn','plan','pending suggestion has no quote — the claim cannot be checked');
+
+  const ids=a=>a.map(x=>x.id);
+  const dup=a=>{const seen=new Set(),d=new Set();a.forEach(x=>{if(seen.has(x))d.add(x);seen.add(x)});return [...d]};
+  [['features',DATA.features],['items',DATA.items],['testcases',DATA.testcases],
+   ['coverage.functional',DATA.coverage.functional],['coverage.assertions',DATA.coverage.assertions]].forEach(([n,a])=>{
+    dup(ids(a)).forEach(d=>dupId.ids.push(d));
+    a.forEach((x,i)=>{ if(!x.id) noId.ids.push(`${n}[${i}]`); });
+  });
+
+  const fids=new Set(ids(DATA.features));
+  const cids=new Set([...ids(DATA.coverage.functional),...ids(DATA.coverage.assertions)]);
+  const tids=new Set(ids(DATA.testcases));
+
+  const PH=DATA.$enums.phase||[];
+  const now=PH.indexOf(DATA.meta.phase);
+  const due=r=>{ const i=PH.indexOf(r.phase); return i>=0 && now>=0 && i<=now; };
+
+  /* every stored field must hold something — an empty cell or an unpicked select is unfinished work.
+     `reviewed` is a boolean with its own rule above, so it is not counted as "empty" here. */
+  const blanks=r=>Object.keys(r).filter(k=>k!=='reviewed' &&
+    (r[k]==null || r[k]==='' || (Array.isArray(r[k]) && !r[k].length)));
+
+  const covered=new Set(DATA.items.flatMap(it=>it.feature_refs||[]));
+  DATA.features.forEach(f=>{
+    if(!due(f)) return;                     // a later phase is not this plan's problem yet
+    if(!covered.has(f.id)) unCov.ids.push(f.id);
+    if(f.status!=='finalized') unDef.ids.push(`${f.id}(${f.status||'—'})`);
+    if(!f.reviewed) unRevF.ids.push(f.id);
+  });
+  DATA.features.forEach(f=>{ if(blanks(f).length) gapF.ids.push(f.id); });
+
+  DATA.items.forEach(it=>{
+    (it.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${it.id}→${r}`); });
+    if(!due(it)) return;
+    if(!(it.feature_refs||[]).length) itemNoF.ids.push(it.id);
+    if(it.status!=='finalized')       itemUnD.ids.push(`${it.id}(${it.status||'—'})`);
+    if(it.implemented!=='done')       itemUnI.ids.push(`${it.id}(${it.implemented||'—'})`);
+    if(!it.reviewed)                  unRevI.ids.push(it.id);
+  });
+  DATA.items.forEach(it=>{ if(blanks(it).length) gapI.ids.push(it.id); });
+
+  DATA.testcases.forEach(t=>{
+    (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
+    (t.coverage_refs||[]).forEach(r=>{ if(!cids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
+    (t.dependencies||[]).forEach(r=>{ if(!tids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
+    if(!t.uvm||!t.uvm.test_class) tcNoCls.ids.push(t.id);
+    if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
+    if(!(t.checks||[]).length) tcNoChk.ids.push(t.id);
+    if(!(+t.seeds>0)) tcNoSeed.ids.push(t.id);
+  });
+  DATA.coverage.functional.forEach(g=>{ if(!(g.feature_refs||[]).length) cgNoRef.ids.push(g.id); });
+  DATA.coverage.assertions.forEach(a=>{ if(!a.module) svaNoMod.ids.push(a.id); });
+
+  const sug=DATA.suggestions||[];
+  dup(sug.map(x=>x.sid)).forEach(d=>dupId.ids.push(d));
+  sug.forEach(x=>{
+    if(x.status==='pending') sugOpen.ids.push(x.sid);
+    if(x.status==='rejected'&&!x.reject_kind) sugNoLbl.ids.push(x.sid);
+    if(x.status==='pending'&&!(x.source&&x.source.quote)) sugNoQ.ids.push(x.sid);
+  });
+
+  // agent names that differ by a keystroke are typos; rare ones are not
+  const agentUse={};
+  DATA.testcases.forEach(t=>((t.uvm&&t.uvm.sequences)||[]).forEach(q=>{ if(q.agent) agentUse[q.agent]=(agentUse[q.agent]||0)+1; }));
+  const ed=(a,b)=>{ const m=a.length,n=b.length; let prev=[...Array(n+1).keys()];
+    for(let i=1;i<=m;i++){ const cur=[i];
+      for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+      prev=cur; } return prev[n]; };
+  const typos=grp('warn','plan','agent names differ by a keystroke — probably a typo');
+  const an=Object.keys(agentUse);
+  for(let i=0;i<an.length;i++) for(let j=i+1;j<an.length;j++)
+    if(Math.min(an[i].length,an[j].length)>=4 && ed(an[i],an[j])<=2) typos.ids.push(`${an[i]} ~ ${an[j]}`);
+
+  const live=G.filter(x=>x.ids.length);
+  const errs=live.filter(x=>x.sev==='err').reduce((n,x)=>n+x.ids.length,0);
+  const warns=live.filter(x=>x.sev==='warn').reduce((n,x)=>n+x.ids.length,0);
+  const B={err:'b-err',warn:'b-warn'};
+  const inv=Object.keys(agentUse).sort().map(a=>`<span class="badge b-acc">${esc(a)} ×${agentUse[a]}</span>`).join('');
+  const html=`<div class="panel lintbox"><div class="panel-head"><h2>Lint</h2>
+    <span class="badge ${errs?'b-err':'b-ok'}">${errs} error</span>
+    <span class="badge b-warn">${warns} warning</span>
+    <span class="hint">phase: ${esc(DATA.meta.phase||'—')}</span>
+    <div class="spacer"></div><button class="btn sm" data-act="lint-close">닫기</button></div>
+    <div class="panel-body">
+      ${inv?`<div class="lint-group"><span class="badge b-mut">AGENTS</span><div class="lg-body"><div class="chips">${inv}</div></div></div>`:''}
+      ${live.length?['feature','item','plan'].map(sc=>{
+        const rows=live.filter(x=>x.scope===sc); if(!rows.length) return '';
+        const e=rows.filter(x=>x.sev==='err').reduce((n,x)=>n+x.ids.length,0);
+        const w=rows.reduce((n,x)=>n+x.ids.length,0)-e;
+        return `<div class="lint-sec">
+          <div class="lint-sec-head"><span class="scope s-${sc}">${sc==='item'?'verification items':sc==='feature'?'features':'plan'}</span>
+            ${e?`<span class="badge b-err">${e} error</span>`:''}${w?`<span class="badge b-warn">${w} warning</span>`:''}</div>
+          ${rows.map(x=>`
+          <div class="lint-group" data-scope="${sc}"><span class="badge ${B[x.sev]}">${x.sev==='err'?'ERR':'WARN'}</span>
+            <div class="lg-body">
+              <div class="lg-title">${esc(x.msg)} <span class="lg-n">(${x.ids.length})</span></div>
+              ${x.countOnly?'':`<div class="chips">${x.ids.map(id=>`<span class="badge b-mut">${esc(id)}</span>`).join('')}</div>`}
+            </div></div>`).join('')}
+        </div>`;
+      }).join('')
+      :'<div class="lint-group"><span class="badge b-ok">OK</span><div class="lg-body">문제 없음 ✓</div></div>'}
+    </div></div>`;
+  const old=$('.lintbox'); if(old) old.remove();
+  $('#tabbody').insertAdjacentHTML('afterbegin',html);
+  $('.lintbox').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ---- export ----------------------------------------------------------- */
+function toYaml(obj,ind){
+  ind=ind||0;
+  const pad='  '.repeat(ind), out=[];
+  for(const k of Object.keys(obj)){
+    const v=obj[k];
+    if(v===null||v===undefined){ out.push(pad+k+': null'); }
+    else if(Array.isArray(v)){
+      if(!v.length){ out.push(pad+k+': []'); continue; }
+      out.push(pad+k+':');
+      for(const it of v){
+        if(it!==null && typeof it==='object'){
+          const sub=toYaml(it,ind+2).split('\n');
+          out.push(pad+'  - '+sub[0].trimStart());
+          for(let i=1;i<sub.length;i++) out.push(sub[i]);
+        } else out.push(pad+'  - '+scalar(it));
+      }
+    }
+    else if(typeof v==='object'){
+      if(!Object.keys(v).length){ out.push(pad+k+': {}'); }
+      else { out.push(pad+k+':'); out.push(toYaml(v,ind+1)); }
+    }
+    else out.push(pad+k+': '+scalar(v));
+  }
+  return out.join('\n');
+}
+function scalar(x){
+  if(typeof x==='number'||typeof x==='boolean') return String(x);
+  if(x===null||x===undefined) return 'null';
+  const s=String(x);
+  if(s==='') return '""';
+  if(/^\s|\s$/.test(s)) return JSON.stringify(s);
+  if(/[\n"']/.test(s)) return JSON.stringify(s);
+  if(/^[-?:,\[\]{}#&*!|>%@`]/.test(s)) return JSON.stringify(s);
+  if(/:\s/.test(s)||/\s#/.test(s)) return JSON.stringify(s);
+  if(/^(true|false|null|yes|no|on|off|~)$/i.test(s)) return JSON.stringify(s);
+  if(/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s)) return JSON.stringify(s);
+  return s;
+}
+function download(name,text,mime){
+  const b=new Blob([text],{type:mime||'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function serializeDoc(snapshotAt){
+  const clone=document.documentElement.cloneNode(true);
+  clone.querySelector('#app').innerHTML='';
+  clone.querySelector('#toast').textContent='';
+  clone.querySelector('#toast').className='toast';
+  // a Save As copy is stamped as a snapshot: reopened, it shows the stamp instead of Save buttons
+  const d = snapshotAt ? {...DATA, meta:{...DATA.meta, snapshot:{at:snapshotAt}}} : DATA;
+  clone.querySelector('#vplan-data').textContent='\n'+JSON.stringify(d,null,2)+'\n';
+  clone.querySelector('title').textContent=`Verification Plan — ${DATA.meta.ip_name}`;
+  return '<!DOCTYPE html>\n'+clone.outerHTML+'\n';
+}
+/* Two kinds of file, two kinds of save. The ORIGINAL (created by create_vplan) saves with no dialog:
+   Save posts the document to the local vplan-save helper (127.0.0.1:8790), which writes the real
+   ~/vplans/vplan_<IP>.html in place — Chrome itself cannot write a file without a picker, and cannot
+   write into ~/Documents on this machine at all. Save As writes a dated SNAPSHOT copy: a fork that,
+   reopened, has no Save buttons at all — just the stamp of when it was made, where the buttons were.
+   Nothing follows the picked file, nothing is remembered, nothing lives in browser storage. */
+const isSnapshot=()=>!!(DATA.meta&&DATA.meta.snapshot);
+function stampNow(){
+  const t=new Date(), p=n=>String(n).padStart(2,'0');
+  return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`;
+}
+/* Load pulls a snapshot's DATA into this original — on screen only, marked dirty; the file on disk
+   changes when the user presses Save. Only snapshot files are accepted: originals hold the live
+   truth, snapshots are the restore points. The marker is stripped on the way in, so loading can
+   never turn an original read-only. A wrong Load is undone by reloading the page without saving. */
+async function loadSnapshot(){
+  if(isSnapshot()) return;
+  try{
+    let text, fname;
+    if(window.showOpenFilePicker){
+      const [h]=await window.showOpenFilePicker({id:'vplan',startIn:'documents',
+        types:[{description:'vplan snapshot',accept:{'text/html':['.html']}}]});
+      const f=await h.getFile(); fname=f.name; text=await f.text();
+    }else{
+      text=await new Promise((res,rej)=>{
+        const i=document.createElement('input'); i.type='file'; i.accept='.html';
+        i.onchange=()=>{ const f=i.files[0]; if(!f){ const e=new Error(''); e.name='AbortError'; rej(e); return; }
+                         fname=f.name; f.text().then(res,rej); };
+        i.click();
+      });
+    }
+    // built in two halves: if this code carried the full tag byte-sequence, every "find the LAST
+    // data block tag" parser (this one, the agent scripts) would grab the code instead of the block
+    const tag='<script id="vplan-data"'+' type="application/json">';
+    const i0=text.lastIndexOf(tag);         // last hit: the header comment above cites the tag too
+    const j0=i0<0?-1:text.indexOf('</'+'script>',i0);
+    if(i0<0||j0<0){ toast('vplan 문서가 아닙니다: '+fname); return; }
+    const d=JSON.parse(text.slice(i0+tag.length,j0));
+    if(!d||!d.meta){ toast('vplan 데이터가 없습니다: '+fname); return; }
+    if(!d.meta.snapshot){ toast('스냅샷 파일이 아닙니다 — Load는 Save As로 만든 스냅샷만 받습니다'); return; }
+    const at=d.meta.snapshot.at;
+    delete d.meta.snapshot;                 // the original must stay an original
+    DATA=d; markDirty(); render();
+    toast('스냅샷 로드됨: '+fname+' ('+at+') — Save를 눌러야 파일에 반영됩니다');
+  }catch(e){
+    if(e.name==='AbortError') return;       // cancelled picker
+    toast('로드 실패 ('+(e.message||e.name)+')');
+  }
+}
+async function saveHtml(saveAs){
+  if(isSnapshot()){ toast('스냅샷 파일입니다 — 저장은 원본에서만 됩니다'); return; }
+  const here=decodeURIComponent((location.pathname.split('/').pop()||''));
+  const name=/\.html?$/i.test(here) ? here : `vplan_${DATA.meta.ip_name||'plan'}.html`.replace(/[^\w.\-]/g,'_');
+  if(saveAs){
+    const at=stampNow();
+    const content=serializeDoc(at);
+    // a dated suggested name, so a reflexive Enter cannot land the snapshot on the original file
+    const snapName=name.replace(/\.html?$/i,'')+'_'+at.replace(/-/g,'').replace(/:/g,'').replace(' ','-')+'.html';
+    if(window.showSaveFilePicker){
+      try{
+        const h=await window.showSaveFilePicker({suggestedName:snapName,id:'vplan',startIn:'documents',
+                                                 types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+        const w=await h.createWritable(); await w.write(content); await w.close();
+        toast('스냅샷 저장: '+h.name+' ('+at+')');
+      }catch(e){
+        if(e.name==='AbortError') return;    // cancelled picker — nothing written, nothing changed
+        toast('스냅샷 실패 ('+e.name+') — 사본을 내려받습니다');
+        download(snapName,content,'text/html;charset=utf-8');
+      }
+      return;
+    }
+    download(snapName,content,'text/html;charset=utf-8');
+    toast('스냅샷을 내려받았습니다: '+snapName);
+    return;
+    // note: no markClean() on either path — the snapshot saved a copy, the working file is still behind
+  }
+  /* The local save helper writes the real file in place — fixed port, name from the document itself;
+     it only accepts plans that already exist in ~/vplans, so a stray page cannot mint files. */
+  const content=serializeDoc();
+  try{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),2000);
+    const r=await fetch('http://127.0.0.1:8790/save?name='+encodeURIComponent(name),
+                        {method:'POST',headers:{'Content-Type':'text/plain'},body:content,signal:ctl.signal});
+    clearTimeout(t);
+    if(r.ok){ markClean(); toast('저장됨: '+name); return; }
+    toast('저장 실패 — 헬퍼 응답 '+r.status+' — 사본을 내려받습니다 (vplan-sync.sh 수동 실행으로 반영)');
+  }catch(e){ toast('저장 헬퍼가 꺼져 있습니다 — 사본을 내려받습니다 (vplan-sync.sh 수동 실행으로 반영)'); }
+  download(name,content,'text/html;charset=utf-8'); markClean();
+}
+
+/* Row reordering. The array order IS the order on screen, so a drop is an array splice and the
+   new order is saved with the document like any other edit. Drag starts on the grip only —
+   the cells are contenteditable and would otherwise drag their text instead. */
+let DRAG=null;
+const rowOf=e=>e.target.closest&&e.target.closest('tr.row');
+const gripOf=tr=>tr&&tr.querySelector('.grip');
+function clearDropMark(){ document.querySelectorAll('.drop-before,.drop-after')
+  .forEach(x=>x.classList.remove('drop-before','drop-after')); }
+function moveRow(arrPath,from,to){
+  const a=get(arrPath); if(!a||from===to) return;
+  const [row]=a.splice(from,1);
+  if(to>from) to--;
+  a.splice(Math.max(0,Math.min(to,a.length)),0,row);
+  markDirty(); render();
+}
+document.addEventListener('dragstart',e=>{
+  if(isSnapshot()){ e.preventDefault(); return; }   // read-only: row order is content too
+  const g=e.target.closest&&e.target.closest('.grip'); if(!g) return;
+  DRAG={arr:g.dataset.arr,i:+g.dataset.i};
+  const tr=rowOf(e); if(tr) tr.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',g.dataset.i);   // Firefox refuses to drag without payload
+});
+document.addEventListener('dragover',e=>{
+  const tr=rowOf(e); if(!tr||!DRAG) return;
+  const g=gripOf(tr); if(!g||g.dataset.arr!==DRAG.arr) return;   // never across tables
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  const r=tr.getBoundingClientRect(), after=(e.clientY-r.top)>r.height/2;
+  clearDropMark(); tr.classList.add(after?'drop-after':'drop-before');
+});
+document.addEventListener('drop',e=>{
+  const tr=rowOf(e); if(!tr||!DRAG) return;
+  const g=gripOf(tr); if(!g||g.dataset.arr!==DRAG.arr) return;
+  e.preventDefault();
+  const r=tr.getBoundingClientRect(), after=(e.clientY-r.top)>r.height/2;
+  const arr=DRAG.arr, from=DRAG.i, to=+g.dataset.i+(after?1:0);
+  clearDropMark(); DRAG=null;
+  moveRow(arr,from,to);
+});
+document.addEventListener('dragend',()=>{ clearDropMark();
+  document.querySelectorAll('.dragging').forEach(x=>x.classList.remove('dragging')); DRAG=null; });
+
+/* ---- events ----------------------------------------------------------- */
+document.addEventListener('input',e=>{
+  if(isSnapshot()) return;                 // a snapshot is read-only: nothing writes into DATA
+  const el=e.target.closest('[data-path]'); if(!el) return;
+  if(el.type==='checkbox'){ set(el.dataset.path,el.checked); markDirty(); return; }
+  const path=el.dataset.path, kind=el.dataset.kind;
+  let v = (el.tagName==='SELECT') ? el.value : el.textContent;
+  if(kind==='csv') v=v.split(',').map(s=>s.trim()).filter(Boolean);
+  else if(kind!=='select'){
+    const cur=get(path);
+    if(typeof cur==='number' && v.trim()!=='' && !isNaN(Number(v))) v=Number(v);
+  }
+  set(path,v);
+});
+document.addEventListener('change',e=>{ if(e.target.tagName==='SELECT'&&e.target.dataset.path) render(); });
+
+document.addEventListener('click',e=>{
+  const tab=e.target.closest('[data-tab]');
+  if(tab){ TAB=tab.dataset.tab; render(); return; }
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act;
+
+  // a snapshot is read-only: viewing acts (fold, filter, sort, lint, export) stay, mutations do not
+  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','tog','unlink'].includes(act)){
+    toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return;
+  }
+
+  if(act==='toggle'){ const id=b.dataset.id; OPEN.has(id)?OPEN.delete(id):OPEN.add(id); render(); return; }
+  if(act==='filter-clear'){ FILTER[b.dataset.arr]={}; render(); return; }
+  if(act==='sort'){
+    if(e.target.tagName==='INPUT') return;          // the category adder lives in that header
+    sortRows(b.dataset.arr,b.dataset.key); return;
+  }
+  if(act==='tog'){
+    const path=b.dataset.path, v=b.dataset.v;
+    const arr=Array.isArray(get(path))?get(path):[];
+    const i=arr.indexOf(v); i<0?arr.push(v):arr.splice(i,1);
+    set(path,arr); markDirty(); render(); return;
+  }
+  if(act==='unlink'){
+    b.dataset.kind==='vref' ? setLink(b.dataset.owner,b.dataset.id,false)    // feature row: drop an item
+                            : setLink(b.dataset.id,b.dataset.owner,false);   // item row: drop a feature
+    markDirty(); render(); return;
+  }
+  if(act==='add'){
+    const arr=get(b.dataset.arr); arr.push(TEMPLATE[b.dataset.kind](arr)); markDirty(); render(); return;
+  }
+  if(act==='del'){
+    const arr=get(b.dataset.arr), i=+b.dataset.i;
+    const label=arr[i]&&arr[i].id?arr[i].id:'항목';
+    if(confirm(label+' 삭제할까요?')){ arr.splice(i,1); markDirty(); render(); } return;
+  }
+  if(act==='dup'){
+    const arr=get(b.dataset.arr), i=+b.dataset.i;
+    const c=JSON.parse(JSON.stringify(arr[i]));
+    if(c&&c.id){ const m=String(c.id).match(/^([A-Za-z_]+)(\d+)$/); c.id = m? m[1]+String(+m[2]+1).padStart(m[2].length,'0')+'_copy' : c.id+'_copy'; }
+    arr.splice(i+1,0,c); markDirty(); render(); return;
+  }
+  if(act==='sug-group'){ const k=b.dataset.g; SUGOPEN.has(k)?SUGOPEN.delete(k):SUGOPEN.add(k); render(); return; }
+  if(act==='sug-accept'){
+    const s=DATA.suggestions[+b.dataset.i];
+    const kind=(s.kind||'feature')==='item'?'item':'feature';
+    const arr=kind==='item'?DATA.items:DATA.features;
+    const f=TEMPLATE[kind](arr);
+    Object.assign(f,s.payload||{});
+    f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);   // fresh ID — never collide
+    f.status='editing';        // a card arrives with description, quote and rationale — already past 'not started'
+    ['judged_by','feature_refs'].forEach(k=>{ if(typeof f[k]==='string') f[k]=f[k].split(/[,\s|]+/).filter(Boolean); });
+    arr.push(f);
+    s.status='accepted'; s.accepted_as=f.id;
+    markDirty(); render(); toast(`${f.id} added`);
+    return;
+  }
+  if(act==='sug-reject'){
+    const s=DATA.suggestions[+b.dataset.i];
+    const k=b.dataset.k||'waived';
+    s.status='rejected'; s.reject_kind=k;
+    if(s.reject_reason==null) s.reject_reason='';
+    markDirty(); render(); toast(`${s.sid} rejected — ${k}. Add a note on the card if you want one.`);
+    return;
+  }
+  if(act==='sug-reopen'){
+    const s=DATA.suggestions[+b.dataset.i];
+    const kept=s.accepted_as;
+    s.status='pending'; delete s.accepted_as; delete s.reject_kind;
+    markDirty(); render();
+    if(kept) toast(`${s.sid} reopened — ${kept} stays in the plan`);
+    return;
+  }
+  if(act==='save'){ saveHtml(); return; }
+  if(act==='save-as'){ saveHtml(true); return; }
+  if(act==='renumber'){ renumberIds(); return; }
+  if(act==='load'){ loadSnapshot(); return; }
+  if(act==='lint'){ lint(); return; }
+  if(act==='lint-close'){ const l=$('.lintbox'); if(l) l.remove(); return; }
+  if(act==='json'){ download(`vplan_${DATA.meta.ip_name}.json`,JSON.stringify(DATA,null,2),'application/json'); return; }
+  if(act==='yaml'){ download(`vplan_${DATA.meta.ip_name}.yaml`,('# vplan '+DATA.$schema+'\n'+toYaml(DATA)).replace(/^\n/,'')); return; }
+});
+
+document.addEventListener('change',e=>{
+  const f=e.target.closest('select[data-filter]');
+  if(f){ filterOf(f.dataset.filter)[f.dataset.key]=f.value; render(); return; }
+  const s=e.target.closest('select[data-pick]'); if(!s||!s.value) return;
+  if(isSnapshot()){ toast('스냅샷 파일입니다 — 수정할 수 없습니다'); render(); return; }
+  const owner=s.dataset.owner;
+  if(s.dataset.pick==='vref') setLink(owner,s.value,true);        // feature side: pick an item
+  else                        setLink(s.value,owner,true);        // item side: pick a feature
+  markDirty(); render();
+});
+
+document.addEventListener('keydown',e=>{
+  const inp=e.target.closest('input[data-newopt]');
+  if(inp){
+    if(e.key==='Escape'){ inp.value=''; inp.blur(); return; }
+    if(e.key!=='Enter') return;
+    e.preventDefault();
+    if(isSnapshot()){ toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return; }
+    const key=inp.dataset.newopt, v=inp.value.trim();
+    if(!v) return;
+    const list=DATA.$enums[key]||(DATA.$enums[key]=[]);
+    if(!list.includes(v)){ list.push(v); markDirty(); }
+    inp.value=''; render(); toast(`${key}: "${v}" added`);
+    return;
+  }
+  if((e.metaKey||e.ctrlKey)&&(e.key==='s'||e.key==='S')){ e.preventDefault(); saveHtml(e.shiftKey); }
+});
+window.addEventListener('beforeunload',e=>{ if(DIRTY){ e.preventDefault(); e.returnValue=''; } });
+
+render();
+</script>
+</body>
+</html>
