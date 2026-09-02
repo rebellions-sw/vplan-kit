@@ -4,8 +4,7 @@
 # What it sets up:
 #   ~/vplans/                       your plans live here — nothing but plans
 #   ~/.vplan-kit/                   runtime: save helper, recovery script, pointer back to this clone
-#   ~/.claude/skills/create_vplan   Claude Code skill: start a plan from the template
-#   ~/.claude/skills/suggest_vplan  Claude Code skill: gap analysis → suggestion cards
+#   ~/.claude/skills/*              Claude Code skills: create_vplan, suggest_vplan, audit_vplan
 #   com.vplan.save (launchd)        localhost:8790 helper that makes the page's Save dialog-free
 set -euo pipefail
 
@@ -29,10 +28,12 @@ printf '%s\n' "$KIT" > "$RUNTIME/kit-path"
 cp "$KIT/bin/vplan-save-server.py" "$KIT/bin/vplan-sync.sh" "$RUNTIME/"
 chmod +x "$RUNTIME/vplan-sync.sh"
 
-# Claude Code skills
-for s in create_vplan suggest_vplan; do
+# Claude Code skills — whatever the clone ships, so a new skill needs no installer edit
+for d in "$KIT"/skills/*/; do
+  s="$(basename "$d")"
   rm -rf "$SKILLS/$s"
-  cp -R "$KIT/skills/$s" "$SKILLS/$s"
+  cp -R "$d" "$SKILLS/$s"
+  echo "vplan-kit: skill $s"
 done
 
 # save helper (launchd, KeepAlive)
@@ -56,7 +57,8 @@ vplan-kit installed.
   1. In Claude Code, run:  /create_vplan <IP>     → makes ~/vplans/vplan_<IP>.html
   2. Open that file in Chrome. Save just works — no dialogs.
   3. Save As writes a dated read-only snapshot (share those, not the original).
-  4. /suggest_vplan <IP> reads the plan's Input Sources and files suggestion cards.
+  4. /suggest_vplan <IP> proposes what the plan is missing; /audit_vplan <IP> judges what it
+     already says against the same sources (누락 / 불충분 / 미스매치).
 The skills work from any directory — they find this clone via ~/.vplan-kit/kit-path.
 Moved or re-cloned the kit? Just run ./install.sh again from the new location.
 If Save ever says the helper is down, saves land in ~/Downloads — recover them with:

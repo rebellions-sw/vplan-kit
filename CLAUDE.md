@@ -4,11 +4,12 @@
 no dependencies, opened straight off disk (`file://`). This is the product.
 
 This repo is also **vplan-kit**, the distributable: `install.sh` sets a Mac up with the two Claude Code
-skills (`skills/create_vplan`, `skills/suggest_vplan`) and the save helper (`bin/` → `~/.vplan-kit/`),
+skills (`skills/create_vplan`, `skills/suggest_vplan`, `skills/audit_vplan`) and the save helper (`bin/` → `~/.vplan-kit/`),
 and writes `~/.vplan-kit/kit-path` so the skills can find this clone from any directory. The template
-and this file are never copied out — the skills read them here, so a `git pull` is the update. Gap analysis is the `suggest_vplan` skill: it reads the
-plan's Input Sources, excludes everything already decided (rows, pending, accepted, and rejected cards),
-and appends suggestion cards per the contract below.
+and this file are never copied out — the skills read them here, so a `git pull` is the update. Two agent skills feed the plan, and both stop at the inbox: `suggest_vplan` reads the Input Sources and
+proposes what the plan is **missing** (`suggestions[]`), while `audit_vplan` judges the rows that already
+exist against those same sources and files what is missing / insufficient / mismatched (`audits[]`).
+Each excludes everything already decided — rows, and pending, accepted or rejected cards alike.
 
 `test/` is a Playwright suite that drives the real file in a real browser. There is no unit-test layer —
 the whole thing is DOM behaviour, so that is where the tests are.
@@ -90,7 +91,8 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
 | `items[]` | **verification items** — what must hold for a feature to be true, one judgeable claim each, with its `oracle` and the `phase` it is due in (pre-Alpha / Alpha / Beta). `VI###` |
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
 | `coverage.functional[]` `coverage.assertions[]` `coverage.code` | `CG##`, `SVA##`, targets + sign-off |
-| `suggestions[]` | agent inbox. **Not the plan.** `S###` |
+| `suggestions[]` | agent inbox — proposals for rows that do not exist yet. **Not the plan.** `S###` |
+| `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. **Not the plan.** `A###` |
 
 Cross-references are ID strings: `testcases[].feature_refs[] → features[].id`,
 `items[].feature_refs[] → features[].id`,
@@ -105,11 +107,17 @@ not in the JS.
 The inbox is not a tab of its own: feature cards render under the Features table and item cards under
 the Verification Items table, each `kind` next to the list it would join.
 
-`suggestions[]` is how an agent proposes work. **An agent appends to it and never writes into
-`features[]` / `testcases[]` / `coverage` on the strength of a suggestion.** The 수락 button in the UI is
-the only path from suggestion to plan. Accepting always mints a *fresh* `F##` rather than trusting the
+`suggestions[]` is how an agent proposes work, `audits[]` how it criticises work already done. **An agent
+appends to either and never writes into `features[]` / `items[]` / `testcases[]` / `coverage` on the
+strength of a card.** The Accept button in the UI is the only path from a card to the plan. Accepting always mints a *fresh* `F##` rather than trusting the
 proposed id (`F##` for `kind: "feature"`, `VI###` for `kind: "item"`), so a suggestion can never collide
 with or overwrite an existing row.
+
+Accepting an audit card is the one place a card EDITS instead of adds: `fix` is merged key-by-key into
+the row named by `target` (`id` stripped, so a card can never rename its target), except for
+`finding: "missing"`, which mints a fresh row exactly like a suggestion. Reopening an accepted audit
+un-decides the card but leaves the edit — the pre-edit values are not kept anywhere, so the row is the
+user's from then on. Renumbering (`Refresh`) carries `target` and `fix.feature_refs` with it.
 
 Accepted and rejected cards are kept for good — they fold into `Accepted` / `Rejected` sections under the
 pending list rather than disappearing. Rejections carry a `reject_kind` — `duplicated` / `hallucinated` / `waived` (see `$enums`) — plus an

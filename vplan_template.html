@@ -178,7 +178,9 @@ tr.subrow .noteline > .cell{flex:1}
 #app.snap .grip,#app.snap #dirty,
 #app.snap [data-act="add"],#app.snap [data-act="del"],#app.snap [data-act="dup"],
 #app.snap [data-act="renumber"],#app.snap [data-act="sug-accept"],#app.snap [data-act="sug-reject"],
-#app.snap [data-act="sug-reopen"]{display:none!important}
+#app.snap [data-act="sug-reopen"],
+#app.snap [data-act="audit-accept"],#app.snap [data-act="audit-reject"],
+#app.snap [data-act="audit-reopen"]{display:none!important}
 tr.row.dragging{opacity:.4}
 tr.row.drop-before > td{box-shadow:inset 0 2px 0 0 var(--accent)}
 tr.row.drop-after  > td{box-shadow:inset 0 -2px 0 0 var(--accent)}
@@ -243,6 +245,11 @@ td{padding:4px 6px;vertical-align:top}   /* no per-row rule: blocks are separate
 td.actions{white-space:nowrap;text-align:center;width:1%}
 th.th-confirm{text-align:center}
 .idbtns{display:flex;gap:3px;margin-top:3px;padding-left:4px}
+/* an audit card's before → after pair: the row as it stands, then the editable proposal */
+.afix{display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:10px;align-items:start;margin-top:6px}
+.afix-was{font-size:12px;color:var(--ink-3);padding-top:16px;overflow-wrap:anywhere}
+.afix-was b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin-bottom:2px}
+@media (max-width:820px){.afix{grid-template-columns:1fr}.afix-was{padding-top:0}}
 #app.snap .idbtns{display:none}
 select.thfilter{display:block;margin-top:3px;width:100%;font:inherit;font-size:10px;text-transform:none;
   letter-spacing:0;color:var(--ink-2);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
@@ -353,6 +360,11 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
       "duplicated",
       "waived"
     ],
+    "finding": [
+      "missing",
+      "insufficient",
+      "mismatch"
+    ],
     "stimulus": [
       "directed",
       "random"
@@ -409,7 +421,8 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
     "assertions": [],
     "signoff_criteria": "Code coverage targets met, all functional covergroups at target, 0 open P0/P1 bugs, regression green for 2 consecutive runs, all coverage exclusions signed off."
   },
-  "suggestions": []
+  "suggestions": [],
+  "audits": []
 }
 </script>
 
@@ -668,7 +681,8 @@ VIEW.features=()=>{
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Notes',cell(`features.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`}).join('')}
   </tbody></table></div></div>
-  ${sugPanel('feature')}`;
+  ${sugPanel('feature')}
+  ${auditPanel('feature')}`;
 };
 
 /* ---- suggestions (AI proposes, human disposes) ------------------------- */
@@ -765,6 +779,110 @@ function sugPanel(kind){
   <div class="panel-body">
   ${g.pending.length?g.pending.map(s=>sugCard(s,all,kind,what)).join('')
     :`<div class="lint-item"><span class="badge b-ok">OK</span><span>No pending suggestions.</span></div>`}
+  </div></div>`;
+}
+
+/* ---- audit (AI judges what is already in the plan) --------------------- */
+/* The mirror image of the suggestion inbox. A suggestion says "the plan is missing this"; an audit
+   card says "this row does not hold up against the source" — 누락 / 불충분 / 미스매치. Same card
+   format, same contract: an agent appends, only Accept changes the plan. `fix` carries ONLY the
+   fields to change, so accepting never blanks a field nobody judged. */
+const FINDING_WHY={
+  missing:'The source says something no row covers — accepting adds a row.',
+  insufficient:'The row is right as far as it goes, but too thin to verify against.',
+  mismatch:'The row contradicts the source, or has drifted from it.',
+};
+const FINDING_BADGE={missing:'b-err',insufficient:'b-warn',mismatch:'b-err'};
+const auditRow=a=>((a.kind||'feature')==='item'?DATA.items:DATA.features).find(r=>r.id===a.target);
+const FIX_LBL={name:'Name',description:'Description',category:'Category',phase:'Phase',
+  status:'Definition',notes:'Notes',oracle:'Oracle',stimulus:'Stimulus',judged_by:'Judged by',
+  feature_refs:'Link to',implemented:'Implemented'};
+function auditCard(a,all,kind){
+  const i=all.indexOf(a), p=`audits.${i}`, done=a.status!=='pending';
+  const cb={high:'b-ok',med:'b-warn',low:'b-mut'}[a.confidence]||'b-mut';
+  const sb={pending:'b-warn',accepted:'b-ok',rejected:'b-mut'}[a.status]||'b-mut';
+  const src=a.source||{}, fnd=a.finding||'insufficient', adds=fnd==='missing';
+  const row=adds?null:auditRow(a), lost=!adds&&!row, fix=a.fix||{};
+  const editor=k=>{
+    if(k==='category')    return sel(`${p}.fix.category`,E.category);
+    if(k==='phase')       return sel(`${p}.fix.phase`,E.phase);
+    if(k==='status')      return sel(`${p}.fix.status`,E.status);
+    if(k==='stimulus')    return sel(`${p}.fix.stimulus`,E.stimulus);
+    if(k==='implemented') return sel(`${p}.fix.implemented`,E.implemented);
+    if(k==='judged_by')   return togChips(`${p}.fix.judged_by`,E.judged_by,fix.judged_by);
+    if(k==='feature_refs')return cell(`${p}.fix.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'});
+    return cell(`${p}.fix.${k}`,{ph:FIX_LBL[k]||k});
+  };
+  /* Before → after, field by field: only what the card proposes is shown, and the proposal stays
+     editable, so a human can soften a fix instead of rejecting the whole card. */
+  const was=k=>{ const v=row?row[k]:undefined; return Array.isArray(v)?v.join(', '):(v==null?'':String(v)); };
+  const fixFields=Object.keys(fix).map(k=>`
+        <div class="afix">
+          ${adds?'':`<div class="afix-was"><b>now</b><span>${was(k)?esc(was(k)):'<span class="hint">— empty —</span>'}</span></div>`}
+          ${field(adds?(FIX_LBL[k]||k):`${FIX_LBL[k]||k} → proposed`,editor(k))}
+        </div>`).join('');
+  return `<div class="sug${done?' done':''}">
+      <div class="sug-head">
+        <span class="sid">${esc(a.aid)}</span>
+        <span class="badge ${sb}">${esc(a.status)}</span>
+        <span class="badge ${FINDING_BADGE[fnd]||'b-warn'}" title="${esc(FINDING_WHY[fnd]||'')}">${esc(fnd)}</span>
+        ${adds?'':`<span class="badge ${lost?'b-err':'b-acc'}" title="${lost?'this row is gone — the card cannot be applied':'the row this card judges'}">${esc(a.target||'no target')}${lost?' — missing':''}</span>`}
+        ${a.status==='rejected'&&a.reject_kind?`<span class="badge b-err" title="${esc(REJECT_WHY[a.reject_kind]||'')}">${esc(a.reject_kind)}</span>`:''}
+        <span class="badge ${cb}">confidence ${esc(a.confidence||'?')}</span>
+        <span class="hint">${esc(a.created||'')}</span>
+        <div class="spacer"></div>
+        ${done
+          ? `<button class="btn sm" data-act="audit-reopen" data-i="${i}">Reopen</button>`
+          : `<button class="btn sm primary" data-act="audit-accept" data-i="${i}">${adds?`Accept → add ${kind==='item'?'item':'feature'}`:`Accept → fix ${esc(a.target||'')}`}</button>
+             ${(E.reject_kind||[]).map(k=>`<button class="btn sm" data-act="audit-reject" data-i="${i}" data-k="${k}" title="${esc(REJECT_WHY[k]||'')}">${esc(k[0].toUpperCase()+k.slice(1))}</button>`).join('')}`}
+      </div>
+      <div class="sug-body">
+        <div class="evi">
+          <div class="evi-top">
+            <span>${esc(src.doc||'source unknown')}</span>
+            ${src.section?`<span class="badge b-acc">§ ${esc(src.section)}</span>`:''}
+            ${src.url?`<a href="${esc(src.url)}" target="_blank" rel="noopener">Open source ↗</a>`:''}
+          </div>
+          ${src.quote?`<div class="evi-q">"${esc(src.quote)}"</div>`:''}
+        </div>
+        <div class="why"><b>why</b>${esc(a.rationale||'')}</div>
+        ${fixFields||`<div class="why"><b>note</b>no field change proposed — read the finding and decide by hand</div>`}
+        ${a.status==='rejected'?`<div class="sug-wide">${field('Reject note (optional)',cell(`${p}.reject_reason`,{ph:'e.g. covered by VI004 / waived for r1p2'}),'Claude reads this next run')}</div>`:''}
+        ${a.status==='accepted'&&a.accepted_as?`<div class="why"><b>applied to</b><span class="badge b-acc">${esc(a.accepted_as)}</span></div>`:''}
+      </div></div>`;
+}
+function auditPanel(kind){
+  const all=DATA.audits||[];
+  const mine=all.filter(a=>(a.kind||'feature')===kind);
+  if(!mine.length) return '';       // no audit run yet — do not put an empty panel in everyone's way
+  const g={pending:[],accepted:[],rejected:[]};
+  mine.forEach(a=>(g[a.status]||g.pending).push(a));
+  const what=kind==='item'?'verification item':'feature';
+  const fold=(name,label)=>{
+    const rows=g[name]; if(!rows.length) return '';
+    const key=`audit:${kind}:${name}`, open=SUGOPEN.has(key);
+    return `<div class="sug-fold" data-act="sug-group" data-g="${key}">
+        <span class="caret">${open?'▾':'▸'}</span><b>${label}</b>
+        <span class="badge b-mut">${rows.length}</span>
+        <span class="hint">${open?'click to fold':'kept in the file — click to open'}</span>
+      </div>${open?rows.map(a=>auditCard(a,all,kind)).join(''):''}`;
+  };
+  const tally=(E.finding||[]).filter(f=>g.pending.some(a=>a.finding===f))
+    .map(f=>`<span class="badge ${FINDING_BADGE[f]||'b-warn'}">${g.pending.filter(a=>a.finding===f).length} ${esc(f)}</span>`).join('');
+  return `
+  ${g.rejected.length||g.accepted.length?`<div class="foldbox">${fold('rejected','Rejected — findings not acted on')}${fold('accepted','Accepted — already applied')}</div>`:''}
+  <p class="note">Findings against the Input Sources — where the plan's own ${what}s fall short, not what
+     it never had. <b>Accept</b> applies the proposed change to the row the card names; nothing changes
+     until you do.</p>
+  <div class="panel"><div class="panel-head"><h2>Audit from AI</h2>
+    <div class="chips">
+      <span class="badge ${g.pending.length?'b-warn':'b-mut'}">${g.pending.length} pending</span>${tally}
+      <span class="badge b-ok">${g.accepted.length} accepted</span>
+      <span class="badge b-mut">${g.rejected.length} rejected</span>
+    </div></div>
+  <div class="panel-body">
+  ${g.pending.length?g.pending.map(a=>auditCard(a,all,kind)).join('')
+    :`<div class="lint-item"><span class="badge b-ok">OK</span><span>No pending findings.</span></div>`}
   </div></div>`;
 }
 
@@ -915,7 +1033,8 @@ VIEW.items=()=>`
     <tr class="subrow"><td></td><td></td>
       <td colspan="6">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
   </tbody></table></div></div>
-  ${sugPanel('item')}`;
+  ${sugPanel('item')}
+  ${auditPanel('item')}`;
 
 /* ---- row templates ---------------------------------------------------- */
 function nextId(arr,prefix,pad){
@@ -957,6 +1076,8 @@ function renumberIds(){
   DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
   DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
+  (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target); if(x.accepted_as) x.accepted_as=m(x.accepted_as);
+    if(x.fix&&x.fix.feature_refs) x.fix.feature_refs=remap(x.fix.feature_refs); });
   Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
     ['vref','fref'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
   });
@@ -991,6 +1112,9 @@ function lint(){
   const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
   const sugNoLbl=grp('warn','plan','rejection has no label (duplicated / hallucinated / waived)');
   const sugNoQ  =grp('warn','plan','pending suggestion has no quote — the claim cannot be checked');
+  const audOpen =grp('warn','plan','audit findings pending review — see Audit from AI',true);
+  const audNoTgt=grp('err','plan','audit card points at a row that does not exist');
+  const audNoQ  =grp('warn','plan','pending audit finding has no quote — the claim cannot be checked');
 
   const ids=a=>a.map(x=>x.id);
   const dup=a=>{const seen=new Set(),d=new Set();a.forEach(x=>{if(seen.has(x))d.add(x);seen.add(x)});return [...d]};
@@ -1050,6 +1174,15 @@ function lint(){
     if(x.status==='pending') sugOpen.ids.push(x.sid);
     if(x.status==='rejected'&&!x.reject_kind) sugNoLbl.ids.push(x.sid);
     if(x.status==='pending'&&!(x.source&&x.source.quote)) sugNoQ.ids.push(x.sid);
+  });
+  const rowIds={feature:new Set(DATA.features.map(f=>f.id)),item:new Set(DATA.items.map(i=>i.id))};
+  (DATA.audits||[]).forEach(x=>{
+    if(x.status==='pending'){
+      audOpen.ids.push(x.aid);
+      if(!(x.source&&x.source.quote)) audNoQ.ids.push(x.aid);
+      if(x.finding!=='missing'&&!rowIds[(x.kind||'feature')==='item'?'item':'feature'].has(x.target)) audNoTgt.ids.push(x.aid);
+    }
+    if(x.status==='rejected'&&!x.reject_kind) sugNoLbl.ids.push(x.aid);
   });
 
   // agent names that differ by a keystroke are typos; rare ones are not
@@ -1308,7 +1441,7 @@ document.addEventListener('click',e=>{
   const act=b.dataset.act;
 
   // a snapshot is read-only: viewing acts (fold, filter, sort, lint, export) stay, mutations do not
-  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','tog','unlink'].includes(act)){
+  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-reject','audit-reopen','tog','unlink'].includes(act)){
     toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return;
   }
 
@@ -1372,6 +1505,50 @@ document.addEventListener('click',e=>{
     s.status='pending'; delete s.accepted_as; delete s.reject_kind;
     markDirty(); render();
     if(kept) toast(`${s.sid} reopened — ${kept} stays in the plan`);
+    return;
+  }
+  /* Accepting an audit is not the same move as accepting a suggestion: a `missing` card adds a row
+     (fresh id, never the proposed one), the other two EDIT the row the card names. Only the keys in
+     `fix` are written, and `id` can never be one of them — a card must not rename its own target. */
+  if(act==='audit-accept'){
+    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
+    const kind=(a.kind||'feature')==='item'?'item':'feature';
+    const arr=kind==='item'?DATA.items:DATA.features;
+    const fix={...(a.fix||{})}; delete fix.id;
+    ['judged_by','feature_refs'].forEach(k=>{ if(typeof fix[k]==='string') fix[k]=fix[k].split(/[,\s|]+/).filter(Boolean); });
+    if((a.finding||'')==='missing'){
+      const f=TEMPLATE[kind](arr);
+      Object.assign(f,fix);
+      f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);
+      f.status='editing';
+      arr.push(f);
+      a.status='accepted'; a.accepted_as=f.id;
+      markDirty(); render(); toast(`${f.id} added`);
+      return;
+    }
+    const row=arr.find(r=>r.id===a.target);
+    if(!row){ toast(`${a.target||'대상 없음'} 을(를) 찾을 수 없습니다 — 적용하지 않았습니다`); return; }
+    Object.assign(row,fix);
+    a.status='accepted'; a.accepted_as=row.id;
+    markDirty(); render(); toast(`${row.id} updated`);
+    return;
+  }
+  if(act==='audit-reject'){
+    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
+    const k=b.dataset.k||'waived';
+    a.status='rejected'; a.reject_kind=k;
+    if(a.reject_reason==null) a.reject_reason='';
+    markDirty(); render(); toast(`${a.aid} rejected — ${k}. Add a note on the card if you want one.`);
+    return;
+  }
+  /* Reopen only un-decides the card. What Accept already wrote into the plan stays: undoing an edit
+     would need the pre-edit values, which the card does not keep — the row is the user's now. */
+  if(act==='audit-reopen'){
+    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
+    const kept=a.accepted_as;
+    a.status='pending'; delete a.accepted_as; delete a.reject_kind;
+    markDirty(); render();
+    if(kept) toast(`${a.aid} reopened — ${kept} keeps what was applied`);
     return;
   }
   if(act==='save'){ saveHtml(); return; }
