@@ -2,7 +2,8 @@
 # vplan-kit installer (macOS). Safe to re-run — it updates in place and never touches your plans.
 #
 # What it sets up:
-#   ~/vplans/                       your plans live here (+ a copy of the template and CLAUDE.md)
+#   ~/vplans/                       your plans live here — nothing but plans
+#   ~/.vplan-kit/                   runtime: save helper, recovery script, pointer back to this clone
 #   ~/.claude/skills/create_vplan   Claude Code skill: start a plan from the template
 #   ~/.claude/skills/suggest_vplan  Claude Code skill: gap analysis → suggestion cards
 #   com.vplan.save (launchd)        localhost:8790 helper that makes the page's Save dialog-free
@@ -10,22 +11,21 @@ set -euo pipefail
 
 KIT="$(cd "$(dirname "$0")" && pwd)"
 PLANS="$HOME/vplans"
+RUNTIME="$HOME/.vplan-kit"
 SKILLS="$HOME/.claude/skills"
 AGENTS="$HOME/Library/LaunchAgents"
 UID_NUM="$(id -u)"
 
 echo "vplan-kit: installing from $KIT"
 
-RUNTIME="$PLANS/.kit"
-
 mkdir -p "$PLANS" "$RUNTIME" "$SKILLS" "$AGENTS" "$HOME/Library/Logs"
 
-# runtime copies of the template and the schema SSOT (plans are never touched)
-cp "$KIT/vplan_template.html" "$PLANS/vplan_template.html"
-cp "$KIT/CLAUDE.md" "$PLANS/CLAUDE.md"
+# The template and CLAUDE.md are NOT copied anywhere: they are repo files, and a copy would go stale
+# the moment someone pulls. The skills read them straight out of this clone, found via this pointer.
+printf '%s\n' "$KIT" > "$RUNTIME/kit-path"
 
-# runtime scripts are COPIED out of the clone: launchd cannot execute anything under TCC-protected
-# folders (~/Documents, ~/Desktop, ~/Downloads) — a clone there would leave the helper unable to start
+# Runtime scripts, however, ARE copied out of the clone: launchd cannot read or execute anything under
+# ~/Documents, ~/Desktop or ~/Downloads (macOS TCC denies it silently), and clones land in those often.
 cp "$KIT/bin/vplan-save-server.py" "$KIT/bin/vplan-sync.sh" "$RUNTIME/"
 chmod +x "$RUNTIME/vplan-sync.sh"
 
@@ -57,6 +57,8 @@ vplan-kit installed.
   2. Open that file in Chrome. Save just works — no dialogs.
   3. Save As writes a dated read-only snapshot (share those, not the original).
   4. /suggest_vplan <IP> reads the plan's Input Sources and files suggestion cards.
+The skills work from any directory — they find this clone via ~/.vplan-kit/kit-path.
+Moved or re-cloned the kit? Just run ./install.sh again from the new location.
 If Save ever says the helper is down, saves land in ~/Downloads — recover them with:
-  zsh ~/vplans/.kit/vplan-sync.sh
+  zsh ~/.vplan-kit/vplan-sync.sh
 EOF

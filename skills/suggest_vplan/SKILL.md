@@ -9,8 +9,10 @@ Gap analysis against a plan's own Input Sources, delivered as suggestion cards �
 The whole point of the inbox is that a human reads the evidence on each card and clicks 수락;
 this skill fills the inbox, it never touches the plan itself.
 
-Read `~/vplans/CLAUDE.md` (schema SSOT and the suggestions contract) before touching anything.
-The plan lives at `~/vplans/vplan_<IP>.html`.
+Read the schema SSOT and the suggestions contract before touching anything: `$KIT/CLAUDE.md`, where
+`KIT=$(cat ~/.vplan-kit/kit-path)` is the vplan-kit clone (the installer wrote that pointer; if it is
+missing, the kit was never installed — tell the user to run `./install.sh` from their clone).
+Plans live at `~/vplans/vplan_<IP>.html` — that folder holds plans and nothing else.
 
 ## `suggest_vplan <IP>` — the run
 

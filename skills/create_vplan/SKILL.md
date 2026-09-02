@@ -8,8 +8,16 @@ description: Start a verification plan for an IP from vplan_template.html. Use w
 File plumbing around a vplan document's data block. Never hand-edit the rendered DOM — the only thing
 that changes is the JSON inside `<script id="vplan-data" type="application/json">`.
 
-**Plans live in `~/vplans/`**, alongside runtime copies of the template and `CLAUDE.md` (the schema
-SSOT) that the installer put there. Read that `CLAUDE.md` before touching any data block.
+**Plans live in `~/vplans/` — nothing else does.** The template and `CLAUDE.md` (the schema SSOT)
+stay in the vplan-kit clone and are never copied out, so a `git pull` updates them for everyone at
+once. Find the clone via the pointer the installer wrote, from whatever directory you were invoked in:
+
+```bash
+KIT=$(cat ~/.vplan-kit/kit-path)     # → the clone; template is $KIT/vplan_template.html
+```
+
+If that file is missing, the kit was never installed — tell the user to run `./install.sh` from their
+clone. Read `$KIT/CLAUDE.md` before touching any data block.
 
 ## How Save works (no dialogs)
 
@@ -21,15 +29,15 @@ dated **snapshot** — `meta.snapshot = {at}` baked into the copy — which reop
 Save/Save As/Load buttons (the stamp sits in their place), no editing. Originals carry a **Load**
 button that pulls a snapshot's data back onto the screen (marker stripped, marked dirty; Save makes
 it real). If the helper is down, Save falls back to downloading a copy into `~/Downloads`; recover
-those by running `zsh ~/vplans/.kit/vplan-sync.sh` **in a user shell** (a launchd agent cannot read
+those by running `zsh ~/.vplan-kit/vplan-sync.sh` **in a user shell** (a launchd agent cannot read
 `~/Downloads` — macOS TCC denies it silently).
 
 ## `create_vplan <IP name>` — start a plan
 
-1. Refuse politely if `~/vplans/vplan_template.html` is missing (run the kit's `install.sh` first),
-   or if `~/vplans/vplan_<IP>.html` already exists (do not overwrite someone's plan; offer to open it
-   or to pick another name).
-2. Copy the template → `~/vplans/vplan_<IP>.html`.
+1. Refuse politely if `~/.vplan-kit/kit-path` or the template it points at is missing (tell the user
+   to run `./install.sh` from their vplan-kit clone), or if `~/vplans/vplan_<IP>.html` already exists
+   (do not overwrite someone's plan; offer to open it or to pick another name).
+2. Copy `$KIT/vplan_template.html` → `~/vplans/vplan_<IP>.html`.
 3. In the copy, set in the data block:
    - `meta.ip_name` = the IP name exactly as given
    - `meta.last_updated` = today, `YYYY-MM-DD`
@@ -45,8 +53,9 @@ those by running `zsh ~/vplans/.kit/vplan-sync.sh` **in a user shell** (a launch
 python3 - <<'PY'
 import json, datetime, os
 ip   = 'ATU'                                   # ← the argument
+kit  = open(os.path.expanduser('~/.vplan-kit/kit-path')).read().strip()
 home = os.path.expanduser('~/vplans')
-src, dst = os.path.join(home, 'vplan_template.html'), os.path.join(home, f'vplan_{ip}.html')
+src, dst = os.path.join(kit, 'vplan_template.html'), os.path.join(home, f'vplan_{ip}.html')
 s = open(src, encoding='utf-8').read()
 tag = '<script id="vplan-data" type="application/json">'
 i = s.rindex(tag); j = s.index('</script>', i)
@@ -78,4 +87,6 @@ tab, and your edit to the file on disk is gone the moment they press Save.
   button does that, and rewrites every reference in the same pass.
 - `suggestions[]` is an inbox: you may append to it, never write into `features[]` / `items[]` on the
   strength of a suggestion. The user accepts cards in the UI.
-- `~/vplans/CLAUDE.md` is the schema's SSOT. Read it before touching the data block.
+- `$KIT/CLAUDE.md` (in the clone, `KIT=$(cat ~/.vplan-kit/kit-path)`) is the schema's SSOT. Read it
+  before touching the data block. Never edit the clone's template or CLAUDE.md to serve one plan —
+  they are shared by everyone who pulls.

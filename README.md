@@ -21,10 +21,15 @@ test/                 # Playwright suite driving the real file in a real browser
 
 | what | where | role |
 |---|---|---|
-| plan home | `~/vplans/` | every `vplan_<IP>.html` lives here (+ template & CLAUDE.md copies) |
+| plan home | `~/vplans/` | every `vplan_<IP>.html` lives here — plans only, nothing else |
 | `create_vplan` skill | `~/.claude/skills/` | `/create_vplan <IP>` — start a plan from the template |
 | `suggest_vplan` skill | `~/.claude/skills/` | `/suggest_vplan <IP>` — gap analysis → suggestion cards |
 | save helper | launchd `com.vplan.save` | localhost process that makes the page's Save dialog-free |
+| runtime | `~/.vplan-kit/` | helper + recovery scripts, and `kit-path` pointing back at this clone |
+
+스킬은 어느 디렉토리에서 실행해도 `~/.vplan-kit/kit-path`로 이 클론을 찾아 템플릿을 읽습니다 —
+템플릿과 CLAUDE.md는 복사되지 않으므로 `git pull`이 곧 업데이트입니다. 클론을 옮겼다면
+`./install.sh`만 다시 실행하세요.
 
 Connect the Notion (or Atlassian) MCP connector so Claude Code can reach the MAS.
 
@@ -52,7 +57,7 @@ the only path into the plan.
 
 - **Save (Cmd+S)** — no dialog, ever: the page posts itself to the local helper, which overwrites
   `~/vplans/vplan_<IP>.html` in place. If the helper is down the save falls back to a download;
-  recover those with `zsh ~/vplans/.kit/vplan-sync.sh` (헬퍼 상태: `curl -s 127.0.0.1:8790/ping`).
+  recover those with `zsh ~/.vplan-kit/vplan-sync.sh` (헬퍼 상태: `curl -s 127.0.0.1:8790/ping`).
 - **Save As (Cmd+Shift+S)** — writes a dated **snapshot**: a frozen, read-only copy that shows when
   it was saved where its buttons would be. **공유는 스냅샷 파일로** — 받는 사람은 아무 브라우저에서
   열립니다. `file://` URL은 링크가 아니므로 파일 자체를 첨부해서 보내세요.
@@ -81,5 +86,7 @@ piece of work, not a bug in the plan.
 npm install && npx playwright install chromium && npm test
 ```
 
-Rules and schema live in [CLAUDE.md](CLAUDE.md). Template updates reach users via `./install.sh`
-re-run; existing plans need their data block transplanted into the new template (ask Claude Code).
+Rules and schema live in [CLAUDE.md](CLAUDE.md). A `git pull` is enough for new plans to pick up a
+template change (skills read the clone directly); re-run `./install.sh` only when the skills, the
+helper, or the clone's location changed. Existing plans keep the page code they were saved with —
+ask Claude Code to transplant their data block into the new template.

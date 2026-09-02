@@ -4,8 +4,9 @@
 no dependencies, opened straight off disk (`file://`). This is the product.
 
 This repo is also **vplan-kit**, the distributable: `install.sh` sets a Mac up with the two Claude Code
-skills (`skills/create_vplan`, `skills/suggest_vplan`), the save helper (`bin/`), and runtime copies of
-the template and this file in `~/vplans/`. Gap analysis is the `suggest_vplan` skill: it reads the
+skills (`skills/create_vplan`, `skills/suggest_vplan`) and the save helper (`bin/` → `~/.vplan-kit/`),
+and writes `~/.vplan-kit/kit-path` so the skills can find this clone from any directory. The template
+and this file are never copied out — the skills read them here, so a `git pull` is the update. Gap analysis is the `suggest_vplan` skill: it reads the
 plan's Input Sources, excludes everything already decided (rows, pending, accepted, and rejected cards),
 and appends suggestion cards per the contract below.
 
