@@ -40,10 +40,14 @@ test('the audit panel sits under each table and counts its findings', async ({ p
   await expect(page.locator('.sid', { hasText: 'A001' })).toHaveCount(0);
 });
 
-test('no audit panel at all until an audit has run', async ({ page }) => {
+test('the audit panel is there before any audit has run, like the suggestion inbox', async ({ page }) => {
   await openVplan(page);
   await seed(page);
-  await expect(page.locator('h2', { hasText: 'Audit from AI' })).toHaveCount(0);
+  for (const tab of ['features', 'items']) {
+    await page.click(`[data-tab="${tab}"]`);
+    await expect(page.locator('h2', { hasText: 'Audit from AI' })).toHaveCount(1);
+    await expect(page.locator('.panel-body', { hasText: 'No pending findings.' })).toBeVisible();
+  }
 });
 
 test('accepting an insufficient finding edits the row in place and keeps its id', async ({ page }) => {

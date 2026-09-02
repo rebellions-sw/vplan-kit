@@ -854,7 +854,6 @@ function auditCard(a,all,kind){
 function auditPanel(kind){
   const all=DATA.audits||[];
   const mine=all.filter(a=>(a.kind||'feature')===kind);
-  if(!mine.length) return '';       // no audit run yet — do not put an empty panel in everyone's way
   const g={pending:[],accepted:[],rejected:[]};
   mine.forEach(a=>(g[a.status]||g.pending).push(a));
   const what=kind==='item'?'verification item':'feature';
