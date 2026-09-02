@@ -262,6 +262,14 @@ th > input.newopt{margin-left:6px;width:52px;border:1px solid var(--line);border
 th > input.newopt:focus{border-color:var(--accent);outline:none}
 .tbl-wrap{overflow-x:auto}
 .tbl-wrap > table{min-width:1120px}
+/* Features / Verification items are the long tables — their panel head (with + add) and column row
+   stay pinned under the top bar while the page scrolls. Sticky resolves against the nearest scroll
+   container, so these two panels must not create one: no overflow on the panel or its table wrap.
+   The trade is that a window narrower than the table scrolls the page sideways instead of the wrap.
+   The offsets are measured, not guessed — --topbar-h / --head-h are written by stickTops(). */
+.panel.stick,.panel.stick > .tbl-wrap{overflow:visible}
+.panel.stick > .panel-head{position:sticky;top:var(--topbar-h,0px);z-index:30}
+.panel.stick thead th{position:sticky;top:calc(var(--topbar-h,0px) + var(--head-h,0px));z-index:20}
 th{white-space:nowrap}
 .cell.id{white-space:nowrap}
 .cell.nw{white-space:nowrap}
@@ -640,7 +648,18 @@ function render(){
   </div>
   <div id="tabbody">${VIEW[TAB]()}</div>`;
   refreshTarget();
+  stickTops();
 }
+/* The top bar wraps at narrow widths and the panel head grows with its filters, so the sticky offsets
+   cannot be constants. They live on #app (not <html>) and serializeDoc() strips them, so a measured
+   pixel value never gets baked into a saved plan. */
+function stickTops(){
+  const app=$('#app'); if(!app) return;
+  const h=el=>el?Math.round(el.getBoundingClientRect().height):0;
+  app.style.setProperty('--topbar-h',h($('.topbar'))+'px');
+  app.style.setProperty('--head-h',  h($('.panel.stick > .panel-head'))+'px');
+}
+window.addEventListener('resize',stickTops);
 
 /* The label where the buttons live: a snapshot says exactly when it was saved; the original says
    nothing at all — Save always lands on its own file, so there is nothing to announce. */
@@ -656,7 +675,7 @@ VIEW.features=()=>{
   const covered = new Set(DATA.items.flatMap(it=>it.feature_refs||[]));
   return `
 
-  <div class="panel"><div class="panel-head"><h2>Feature list</h2>${addBtn('features','feature','feature')}${filterNote('features')}
+  <div class="panel stick"><div class="panel-head"><h2>Feature list</h2>${addBtn('features','feature','feature')}${filterNote('features')}
     <div class="spacer"></div>
     ${headFilter('verified by','features','vref',[['__none__','— none —']].concat(DATA.items.map(it=>[it.id,it.id])))}</div>
   <div class="tbl-wrap"><table><thead><tr>
@@ -1004,7 +1023,7 @@ VIEW.coverage=()=>{
 
 VIEW.items=()=>`
 
-  <div class="panel"><div class="panel-head"><h2>Verification items</h2>${addBtn('items','item','item')}${filterNote('items')}
+  <div class="panel stick"><div class="panel-head"><h2>Verification items</h2>${addBtn('items','item','item')}${filterNote('items')}
     <div class="spacer"></div>
     ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}</div>
   <div class="tbl-wrap"><table><thead><tr>
@@ -1277,6 +1296,7 @@ function download(name,text,mime){
 function serializeDoc(snapshotAt){
   const clone=document.documentElement.cloneNode(true);
   clone.querySelector('#app').innerHTML='';
+  clone.querySelector('#app').removeAttribute('style');   // measured sticky offsets are not document content
   clone.querySelector('#toast').textContent='';
   clone.querySelector('#toast').className='toast';
   // a Save As copy is stamped as a snapshot: reopened, it shows the stamp instead of Save buttons
