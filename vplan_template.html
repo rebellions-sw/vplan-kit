@@ -1285,7 +1285,7 @@ function serializeDoc(snapshotAt){
   clone.querySelector('title').textContent=`Verification Plan — ${DATA.meta.ip_name}`;
   return '<!DOCTYPE html>\n'+clone.outerHTML+'\n';
 }
-/* Two kinds of file, two kinds of save. The ORIGINAL (created by create_vplan) saves with no dialog:
+/* Two kinds of file, two kinds of save. The ORIGINAL (created by vplan_create) saves with no dialog:
    Save posts the document to the local vplan-save helper (127.0.0.1:8790), which writes the real
    ~/vplans/vplan_<IP>.html in place — Chrome itself cannot write a file without a picker, and cannot
    write into ~/Documents on this machine at all. Save As writes a dated SNAPSHOT copy: a fork that,

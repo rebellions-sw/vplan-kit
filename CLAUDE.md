@@ -3,13 +3,24 @@
 **`vplan.html`** is a single-file verification-plan editor: UI + data + renderer in one file, no build step,
 no dependencies, opened straight off disk (`file://`). This is the product.
 
-This repo is also **vplan-kit**, the distributable: `install.sh` sets a Mac up with the two Claude Code
-skills (`skills/create_vplan`, `skills/suggest_vplan`, `skills/audit_vplan`) and the save helper (`bin/` → `~/.vplan-kit/`),
-and writes `~/.vplan-kit/kit-path` so the skills can find this clone from any directory. The template
-and this file are never copied out — the skills read them here, so a `git pull` is the update. Two agent skills feed the plan, and both stop at the inbox: `suggest_vplan` reads the Input Sources and
-proposes what the plan is **missing** (`suggestions[]`), while `audit_vplan` judges the rows that already
-exist against those same sources and files what is missing / insufficient / mismatched (`audits[]`).
-Each excludes everything already decided — rows, and pending, accepted or rejected cards alike.
+This repo is also **vplan-kit**, the distributable: `install.sh` installs everything under `skills/` as
+Claude Code skills and the save helper (`bin/` → `~/.vplan-kit/`), and writes `~/.vplan-kit/kit-path` so
+the skills can find this clone from any directory. The template and this file are never copied out — the
+skills read them here, so a `git pull` is the update.
+
+The skills, and what each is allowed to touch:
+
+| skill | reads | writes |
+|---|---|---|
+| `vplan_create` | the template | a new `~/vplans/vplan_<IP>.html` |
+| `vplan_suggest` | Input Sources + the plan | `suggestions[]` — proposals for rows that do not exist yet |
+| `vplan_audit` | Input Sources + the plan | `audits[]` — findings against rows that do (missing / insufficient / mismatch) |
+| `vplan_fill_description` | Input Sources + the plan | **rows, one field wide**: a `description` that is empty, never one a human wrote |
+
+Both inbox skills exclude everything already decided — rows, and pending, accepted or rejected cards
+alike. `vplan_fill_description` is the single, deliberate exception to "agents never write rows": it may
+fill an empty `description` on `features[]` / `items[]` and nothing else, and must verify before saving
+that no other field moved.
 
 `test/` is a Playwright suite that drives the real file in a real browser. There is no unit-test layer —
 the whole thing is DOM behaviour, so that is where the tests are.

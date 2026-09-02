@@ -1,9 +1,9 @@
 ---
-name: suggest_vplan
-description: Gap analysis for a vplan — read the plan's Input Sources (uArch / Ref-Model / CSR) and propose feature / verification-item suggestion cards. Use when the user says "suggest_vplan <IP>", "<IP> 제안해줘", "<IP> gap analysis", or asks for feature/item suggestions on a vplan.
+name: vplan_suggest
+description: Gap analysis for a vplan — read the plan's Input Sources (uArch / Ref-Model / CSR) and propose feature / verification-item suggestion cards. Use when the user says "vplan_suggest <IP>", "<IP> 제안해줘", "<IP> gap analysis", or asks for feature/item suggestions on a vplan.
 ---
 
-# suggest_vplan
+# vplan_suggest
 
 Gap analysis against a plan's own Input Sources, delivered as suggestion cards — never as rows.
 The whole point of the inbox is that a human reads the evidence on each card and clicks 수락;
@@ -14,9 +14,9 @@ Read the schema SSOT and the suggestions contract before touching anything: `$KI
 missing, the kit was never installed — tell the user to run `./install.sh` from their clone).
 Plans live at `~/vplans/vplan_<IP>.html` — that folder holds plans and nothing else.
 
-## `suggest_vplan <IP>` — the run
+## `vplan_suggest <IP>` — the run
 
-1. **Refuse politely** if `~/vplans/vplan_<IP>.html` does not exist (offer `create_vplan <IP>`), or
+1. **Refuse politely** if `~/vplans/vplan_<IP>.html` does not exist (offer `vplan_create <IP>`), or
    if its `meta.snapshot` is set — snapshots are frozen exports; suggestions go into the original only.
 2. **Ask the user to Save and confirm before editing.** Their unsaved rows exist only in the open
    tab, and your appended cards are wiped the moment they press Save over them. After you write the

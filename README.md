@@ -7,7 +7,8 @@ Claude Code가 데이터 블록을 읽고 써서 플랜 생성과 gap analysis�
 ```
 vplan_template.html   # the product: editable UI + its own data (single file)
 CLAUDE.md             # schema + editing rules — the SSOT agents read first
-skills/               # Claude Code skills: create_vplan, suggest_vplan, audit_vplan
+skills/               # Claude Code skills: vplan_create, vplan_suggest, vplan_audit,
+                      #                     vplan_fill_description
 bin/                  # save helper + recovery script
 install.sh            # one-shot setup (macOS)
 test/                 # Playwright suite driving the real file in a real browser
@@ -22,9 +23,10 @@ test/                 # Playwright suite driving the real file in a real browser
 | what | where | role |
 |---|---|---|
 | plan home | `~/vplans/` | every `vplan_<IP>.html` lives here — plans only, nothing else |
-| `create_vplan` skill | `~/.claude/skills/` | `/create_vplan <IP>` — start a plan from the template |
-| `suggest_vplan` skill | `~/.claude/skills/` | `/suggest_vplan <IP>` — gap analysis → suggestion cards |
-| `audit_vplan` skill | `~/.claude/skills/` | `/audit_vplan <IP>` — 기존 행 검토 → 누락/불충분/미스매치 카드 |
+| `vplan_create` skill | `~/.claude/skills/` | `/vplan_create <IP>` — start a plan from the template |
+| `vplan_suggest` skill | `~/.claude/skills/` | `/vplan_suggest <IP>` — gap analysis → suggestion cards |
+| `vplan_audit` skill | `~/.claude/skills/` | `/vplan_audit <IP>` — 기존 행 검토 → 누락/불충분/미스매치 카드 |
+| `vplan_fill_description` skill | `~/.claude/skills/` | `/vplan_fill_description <IP>` — 제목만 있는 행의 설명 채우기 |
 | save helper | launchd `com.vplan.save` | localhost process that makes the page's Save dialog-free |
 | runtime | `~/.vplan-kit/` | helper + recovery scripts, and `kit-path` pointing back at this clone |
 
@@ -39,7 +41,7 @@ Connect the Notion (or Atlassian) MCP connector so Claude Code can reach the MAS
 ```
   Claude Code                          you, in the browser
   ───────────                          ───────────────────
-  /suggest_vplan <IP>
+  /vplan_suggest <IP>
       │  reads Input Sources (uArch MAS / ref-model / CSR)
       │  reads existing rows + past rejections
       ▼
@@ -51,12 +53,13 @@ Connect the Notion (or Atlassian) MCP connector so Claude Code can reach the MAS
                                      Claude가 다음 실행 때 읽고 재제안하지 않음
 ```
 
-`/audit_vplan <IP>`는 반대 방향입니다 — **이미 적힌 행**을 같은 소스에 비추어 판정해서
+`/vplan_audit <IP>`는 반대 방향입니다 — **이미 적힌 행**을 같은 소스에 비추어 판정해서
 `누락 / 불충분 / 미스매치` 카드를 **Audit from AI** 패널에 쌓습니다. Accept를 누르면 카드가 가리키는
 행이 그 자리에서 수정됩니다(`missing`만 새 행 추가).
 
 Nothing an agent writes enters the plan on its own. `suggestions[]`/`audits[]` are inboxes; the Accept
-button is the only path into the plan.
+button is the only path into the plan. 예외는 하나 — `/vplan_fill_description <IP>`는 **제목만 적어둔 행의
+빈 description**을 바로 채웁니다. 이미 쓰여 있는 설명은 절대 건드리지 않고, 다른 칸도 손대지 않습니다.
 
 ## Saving, snapshots, sharing
 

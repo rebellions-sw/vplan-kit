@@ -10,7 +10,7 @@
 # MIRROR runs only when a backup directory is passed as $1 (typically by a personal launchd agent).
 #
 # Contract:
-#   - ingest only names that already exist in ~/vplans — create_vplan creates the file first, so a
+#   - ingest only names that already exist in ~/vplans — vplan_create creates the file first, so a
 #     random web download named vplan_*.html is never kidnapped
 #   - apply Downloads copies oldest→newest so the newest save wins; " (1)"-style dup names collapse
 #   - mirror copies only when ~/vplans is strictly newer (cp -p keeps mtimes comparable), never deletes

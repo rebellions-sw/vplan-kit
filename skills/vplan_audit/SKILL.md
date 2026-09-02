@@ -1,11 +1,11 @@
 ---
-name: audit_vplan
-description: Audit a vplan's existing rows against its Input Sources (uArch / Ref-Model / CSR) and file Audit from AI cards for what is 누락 / 불충분 / 미스매치. Use when the user says "audit_vplan <IP>", "<IP> 검토해줘", "<IP> 감사", or asks whether the plan's features/items hold up against the spec.
+name: vplan_audit
+description: Audit a vplan's existing rows against its Input Sources (uArch / Ref-Model / CSR) and file Audit from AI cards for what is 누락 / 불충분 / 미스매치. Use when the user says "vplan_audit <IP>", "<IP> 검토해줘", "<IP> 감사", or asks whether the plan's features/items hold up against the spec.
 ---
 
-# audit_vplan
+# vplan_audit
 
-`suggest_vplan` asks *what is the plan missing*. This skill asks *does what the plan already says hold
+`vplan_suggest` asks *what is the plan missing*. This skill asks *does what the plan already says hold
 up* — every row judged against the Input Sources, and every finding filed as an **Audit from AI** card.
 Same contract as the suggestion inbox: an agent appends, only the human's Accept changes a row.
 
@@ -21,14 +21,14 @@ Plans live at `~/vplans/vplan_<IP>.html`.
 | `insufficient` | a row is right but **too thin to verify against** — no oracle, vague description, no measurable claim | edits the named row |
 | `mismatch` | a row **contradicts** the source, or drifted from it (wrong value, renamed signal, superseded behavior) | edits the named row |
 
-`missing` overlaps `suggest_vplan` on purpose: there it is a proposal, here it is a finding that came out
+`missing` overlaps `vplan_suggest` on purpose: there it is a proposal, here it is a finding that came out
 of auditing coverage. Prefer `insufficient`/`mismatch` — judging what exists is this skill's job. File a
 `missing` card only when auditing an existing row exposed the hole (e.g. a feature whose stated behavior
 has no verification item at all).
 
 ## The run
 
-1. **Refuse politely** if `~/vplans/vplan_<IP>.html` does not exist (offer `create_vplan <IP>`), or if
+1. **Refuse politely** if `~/vplans/vplan_<IP>.html` does not exist (offer `vplan_create <IP>`), or if
    `meta.snapshot` is set — snapshots are frozen exports.
 2. **Ask the user to Save and confirm before editing.** Unsaved rows live only in the open tab, and your
    cards are wiped the moment they Save over them. After you write, they must **reload the tab**.

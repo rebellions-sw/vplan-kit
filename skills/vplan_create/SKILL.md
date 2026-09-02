@@ -1,9 +1,9 @@
 ---
-name: create_vplan
-description: Start a verification plan for an IP from vplan_template.html. Use when the user says "create_vplan <IP>", "make a vplan for <IP>", or "<IP> vplan 만들어줘".
+name: vplan_create
+description: Start a verification plan for an IP from vplan_template.html. Use when the user says "vplan_create <IP>", "make a vplan for <IP>", or "<IP> vplan 만들어줘".
 ---
 
-# create_vplan
+# vplan_create
 
 File plumbing around a vplan document's data block. Never hand-edit the rendered DOM — the only thing
 that changes is the JSON inside `<script id="vplan-data" type="application/json">`.
@@ -32,7 +32,7 @@ it real). If the helper is down, Save falls back to downloading a copy into `~/D
 those by running `zsh ~/.vplan-kit/vplan-sync.sh` **in a user shell** (a launchd agent cannot read
 `~/Downloads` — macOS TCC denies it silently).
 
-## `create_vplan <IP name>` — start a plan
+## `vplan_create <IP name>` — start a plan
 
 1. Refuse politely if `~/.vplan-kit/kit-path` or the template it points at is missing (tell the user
    to run `./install.sh` from their vplan-kit clone), or if `~/vplans/vplan_<IP>.html` already exists
