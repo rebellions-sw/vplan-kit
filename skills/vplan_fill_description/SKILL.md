@@ -15,17 +15,27 @@ Plans live at `~/vplans/vplan_<IP>.html`.
 
 ## What a good description says
 
-Not a restatement of the name — the name is already there. A description answers **what must be true**:
+**Short.** One or two sentences, drawn from the Input Sources — not a restatement of the name, not an
+essay. A description answers what must be true:
 
-- **feature** — what the design does, and what "correct" means for it. One or two sentences, concrete
-  enough that someone can tell a passing run from a failing one.
-- **item** — the single judgeable claim: the condition, the expected behavior, and how it is observed.
-  If the row's `oracle` is empty, the description still says what the result is compared against, but
-  do **not** write into `oracle` — say so in the report and let the user fill it.
+- **feature** — what the design does and what "correct" means for it.
+- **item** — the judgeable claim: the condition, the expected behavior, how it is observed. If `oracle`
+  is empty, say what the result is compared against here, but do **not** write into `oracle` — report it.
+
+**`name` and `category` together decide where to look**, and the category sets the shape of the sentence:
+
+| category | read for it | the description states |
+|---|---|---|
+| `command` | the command / opcode tables and their response rules in the MAS | what the command does, what comes back, and when it does not |
+| `behavior` | the operation-flow and corner-case sections; the ref-model's logic | the trigger, the resulting behavior, and the boundary that makes it wrong |
+| `parameter` | the CSR/SFR sheet and parameter tables | the field, its legal values or reset value, and what depends on it |
+
+A row whose category is blank is still fair game — take the name's own wording as the search key, and
+say in the report that its category was empty.
 
 Match the plan's own voice: if existing descriptions are Korean, write Korean; if English, English; if
-the plan is empty, follow the language of the row names. Keep to the vocabulary of the sources — a
-signal or register named in the MAS is named the same way here.
+the plan is empty, follow the language of the row names. Keep the vocabulary of the sources — a signal
+or register named in the MAS is named the same way here.
 
 ## The run
 
@@ -48,13 +58,14 @@ d = json.loads(s[i+len(tag):j])
    `description` is empty or whitespace. A row with no name is not ready — skip it and say so. If nothing
    qualifies, stop and report that; do not "improve" descriptions that already exist.
 5. **Read the Input Sources** from `meta`, skipping blanks silently: `uarch` (URL — Notion tools for a
-   Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Also read
-   the row's own context — its category, phase, `feature_refs`, and the descriptions of neighbouring
-   rows — so the wording lands consistently.
-6. **Write each description from the sources where they cover the row.** Where they do not, still draft
-   from the row name and the surrounding plan, but keep it modest — say what the name implies must hold,
-   never invent a signal name, register field, or numeric limit that no source states. **List every
-   unsourced row in the report** so the user knows which ones to check. Never write a description that
+   Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Search
+   them per row by **name + category** (the table above says which source a category points at), and
+   read the row's own context — phase, `feature_refs`, neighbouring descriptions — so the wording
+   lands consistently.
+6. **Write each description from the sources where they cover the row**, and keep it to one or two
+   sentences. Where the sources are silent, still draft from the name and the surrounding plan, but stay
+   modest — say what the name implies must hold, never invent a signal name, register field, or numeric
+   limit no source states. **List every unsourced row in the report.** Never write a description that
    only repeats the name, and never leave a placeholder like "TBD" — skip the row instead.
 7. **Write nothing else.** No new rows, no `suggestions[]` / `audits[]` cards, no `oracle`, `category`,
    `phase`, `status`, `notes`, no id renumbering. If a row needs more than a description, that is
@@ -76,7 +87,8 @@ assert scrub(after, filled) == before, 'refusing to save: something other than t
 ```
 
 9. **Report**: how many descriptions were filled per table, which rows were skipped and why (no name,
-   already described), which ones had no source backing them, and the reminder to **reload the tab**.
+   already described), which ones had no source backing them or no category, and the reminder to
+   **reload the tab**.
 
 ## Rules that outlive this skill
 
