@@ -84,7 +84,9 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   the saved file permanently.
 - **Do not `render()` on every keystroke.** Re-rendering blows away focus and the caret in a
   `contenteditable`. The `input` handler writes to `DATA` and stops. Only structural changes
-  (add/delete/accept/tab switch) call `render()`.
+  (add/delete/accept/tab switch) call `render()`. The one exception is the header search box: the row
+  list IS its feedback, so it re-renders per keystroke and restores focus and caret by hand — it is a
+  plain `<input>` (where the caret is a number), never a `contenteditable`.
 - **`esc()` everything interpolated into HTML.** Values are user text and may contain `<`.
 - **IDs are stable primary keys.** `nextId()` continues from the highest existing one; nothing renumbers
   on its own. The `Refresh` button is the one exception — it renumbers `F##`/`VI###` to match list order
