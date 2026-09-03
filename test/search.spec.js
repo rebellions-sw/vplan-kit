@@ -106,3 +106,39 @@ test('the keyword is UI state and never reaches the file', async ({ page }) => {
   expect(JSON.stringify(data)).not.toContain('tlb');
   expect(data.features.length).toBe(3);
 });
+
+test('the Verification items list has the same box, over its own fields', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.items = [
+      { id:'VI001', category:'behavior', name:'miss issues a request', description:'', feature_refs:['F01'],
+        oracle:'compared against the ref-model', judged_by:['scoreboard'], stimulus:'directed',
+        status:'editing', phase:'pre-Alpha', implemented:'todo', reviewed:false, notes:'' },
+      { id:'VI002', category:'command', name:'prefetch does not merge', description:'', feature_refs:[],
+        oracle:'', judged_by:['sva'], stimulus:'random', status:'editing', phase:'Alpha',
+        implemented:'todo', reviewed:false, notes:'Case 9' },
+    ];
+    render();
+  });
+  await page.click('[data-tab="items"]');
+
+  const box = '[data-search="items"]';
+  const ids = () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
+
+  await page.fill(box, 'ref-model');            // the oracle
+  expect(await ids()).toEqual(['VI001']);
+
+  await page.fill(box, 'sva');                  // judged_by, an array
+  expect(await ids()).toEqual(['VI002']);
+
+  await page.fill(box, 'case 9');               // notes, two words
+  expect(await ids()).toEqual(['VI002']);
+
+  await page.fill(box, 'F01');                  // a linked feature id
+  expect(await ids()).toEqual(['VI001']);
+
+  // the two searches are independent: the features box is untouched
+  await page.click('[data-tab="features"]');
+  expect(await page.inputValue('[data-search="features"]')).toBe('');
+});

@@ -1175,7 +1175,8 @@ VIEW.items=()=>`
 
   <div class="panel stick"><div class="panel-head"><h2>Verification items</h2>${addBtn('items','item','item')}${filterNote('items')}
     <div class="spacer"></div>
-    ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}</div>
+    ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}
+    ${headSearch('items')}</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}${filterTh(catHead(),'items','category','category','width:170px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
     ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
