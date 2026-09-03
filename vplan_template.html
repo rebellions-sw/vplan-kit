@@ -261,8 +261,9 @@ th{text-align:left;font-weight:700;font-size:11.5px;line-height:1.3;color:var(--
 td{padding:4px 6px;vertical-align:top}   /* no per-row rule: blocks are separated by tr.row's top border */
 td.actions{white-space:nowrap;text-align:center;width:1%}
 th.th-confirm{text-align:center}
-/* one segmented group, flush with the cell edge above it: shared borders (negative margin collapses
-   the doubled 1px seam) and only the outer corners rounded */
+/* one segmented group, flush with the column's left edge: the cell drops td's own padding, borders are
+   shared (a negative margin collapses the doubled 1px seam), and only the outer corners are rounded */
+td.idbtns-cell{padding-left:0}
 .idbtns{display:flex;gap:0;margin-top:3px}
 .idbtns > .btn.icon{border-radius:0;margin-left:-1px}
 .idbtns > .btn.icon:first-child{border-radius:5px 0 0 5px;margin-left:0}
@@ -727,7 +728,7 @@ VIEW.features=()=>{
     <td>${sel(`features.${i}.phase`,E.phase,{cls:'phase'})}</td>
     <td>${sel(`features.${i}.status`,E.status)}</td>
     <td class="actions">${confirmCk('features',i)}</td></tr>
-    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
+    <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
       <td colspan="5">${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
         ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1114,7 +1115,7 @@ VIEW.items=()=>`
     <td>${sel(`items.${i}.status`,E.status)}</td>
     <td>${sel(`items.${i}.implemented`,E.implemented)}</td>
     <td class="actions">${confirmCk('items',i)}</td></tr>
-    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div></td>
+    <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div></td>
       <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
         ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
       <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
