@@ -8,7 +8,7 @@ Claude Code가 데이터 블록을 읽고 써서 플랜 생성과 gap analysis�
 vplan_template.html   # the product: editable UI + its own data (single file)
 CLAUDE.md             # schema + editing rules — the SSOT agents read first
 skills/               # Claude Code skills: vplan_create, vplan_suggest, vplan_audit,
-                      #                     vplan_fill_description
+                      #                     vplan_feature_desc
 bin/                  # save helper + recovery script
 install.sh            # one-shot setup (macOS)
 test/                 # Playwright suite driving the real file in a real browser
@@ -26,7 +26,7 @@ test/                 # Playwright suite driving the real file in a real browser
 | `vplan_create` skill | `~/.claude/skills/` | `/vplan_create <IP>` — start a plan from the template |
 | `vplan_suggest` skill | `~/.claude/skills/` | `/vplan_suggest <IP>` — gap analysis → suggestion cards |
 | `vplan_audit` skill | `~/.claude/skills/` | `/vplan_audit <IP>` — 기존 행 검토 → 누락/불충분/미스매치 카드 |
-| `vplan_fill_description` skill | `~/.claude/skills/` | `/vplan_fill_description <IP>` — 제목만 있는 행의 설명 채우기 |
+| `vplan_feature_desc` skill | `~/.claude/skills/` | `/vplan_feature_desc <IP>` — feature 행의 설명 채우기 |
 | save helper | launchd `com.vplan.save` | localhost process that makes the page's Save dialog-free |
 | runtime | `~/.vplan-kit/` | helper + recovery scripts, and `kit-path` pointing back at this clone |
 
@@ -58,8 +58,7 @@ Connect the Notion (or Atlassian) MCP connector so Claude Code can reach the MAS
 행이 그 자리에서 수정됩니다(`missing`만 새 행 추가).
 
 Nothing an agent writes enters the plan on its own. `suggestions[]`/`audits[]` are inboxes; the Accept
-button is the only path into the plan. 예외는 하나 — `/vplan_fill_description <IP>`는 **제목만 적어둔 행의
-빈 description**을 바로 채웁니다. 이미 쓰여 있는 설명은 절대 건드리지 않고, 다른 칸도 손대지 않습니다.
+button is the only path into the plan. 예외는 하나 — `/vplan_feature_desc <IP>`는 **feature 행의 description**을 바로 채웁니다. 이미 쓰여 있는 설명은 절대 건드리지 않고, 다른 칸도 손대지 않습니다.
 
 ## Saving, snapshots, sharing
 

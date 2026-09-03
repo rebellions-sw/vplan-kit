@@ -1,12 +1,13 @@
 ---
-name: vplan_fill_description
-description: Fill in the Description of vplan rows that have a name but no description, grounded in the plan's Input Sources. Use when the user says "vplan_fill_description <IP>", "<IP> description 채워줘", "제목만 써놨으니 설명 채워줘", or asks to flesh out feature / verification-item descriptions in a vplan.
+name: vplan_feature_desc
+description: Write the Description of a vplan's FEATURE rows from the plan's Input Sources (uArch / Ref-Model / CSR). Use when the user says "vplan_feature_desc <IP>", "<IP> feature description 채워줘", "제목만 써놨으니 설명 채워줘", or asks to flesh out feature descriptions in a vplan. Not for verification items.
 ---
 
-# vplan_fill_description
+# vplan_feature_desc
 
-The user writes the titles; this skill writes the descriptions. It is the one skill allowed to write
-into `features[]` / `items[]` directly — and only into `description`, never another field.
+The user writes the feature titles; this skill writes their descriptions. It is the one skill allowed
+to write into `features[]` directly — and only into `description`, never another field. **Features
+only**: `items[]` is out of scope here, untouched, and gets its own skill later.
 
 Two rules decide what it may touch:
 
@@ -37,9 +38,8 @@ Plans live at `~/vplans/vplan_<IP>.html`.
 **Short.** One or two sentences, drawn from the Input Sources — not a restatement of the name, not an
 essay. A description answers what must be true:
 
-- **feature** — what the design does and what "correct" means for it.
-- **item** — the judgeable claim: the condition, the expected behavior, how it is observed. If `oracle`
-  is empty, say what the result is compared against here, but do **not** write into `oracle` — report it.
+What the design does, and what "correct" means for it — concrete enough that someone can tell a
+passing run from a failing one.
 
 **`name` and `category` together decide where to look**, and the category sets the shape of the sentence:
 
@@ -74,10 +74,10 @@ i = s.rindex(tag); j = s.index('</script>', i)
 d = json.loads(s[i+len(tag):j])
 ```
 
-4. **Pick the rows to fill**: every row in `features[]` and `items[]` whose `name` is non-empty and
-   whose `status` is not `finalized` — with or without an existing description. A row with no name is
-   not ready, and a finalized row is closed; skip both and say so. If nothing qualifies, stop and
-   report that.
+4. **Pick the rows to fill**: every row in **`features[]`** whose `name` is non-empty and whose
+   `status` is not `finalized` — with or without an existing description. A row with no name is not
+   ready, and a finalized row is closed; skip both and say so. If nothing qualifies, stop and report
+   that. `items[]` is not yours: never read it for content, never write to it.
 5. **Read the Input Sources** from `meta`, skipping blanks silently: `uarch` (URL — Notion tools for a
    Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Search
    them per row by **name + category** (the table above says which source a category points at).
@@ -95,12 +95,12 @@ d = json.loads(s[i+len(tag):j])
    `=== AI ===`: everything above it is theirs and must come back byte-identical; everything below is
    your own previous run, to be replaced. Then join `their text` + `\n` + `=== AI ===` + `\n` + your
    new lines (drop the leading newline when their half is empty).
-8. **Write nothing else.** No new rows, no `suggestions[]` / `audits[]` cards, no `oracle`, `category`,
-   `phase`, `status`, `notes`, no id renumbering. If a row needs more than a description, that is
-   `vplan_audit`'s job — mention it in the report.
+8. **Write nothing else.** No `items[]`, no new rows, no `suggestions[]` / `audits[]` cards, no
+   `category`, `phase`, `status`, `notes`, no id renumbering. If a row needs more than a description,
+   that is `vplan_audit`'s job — mention it in the report.
 9. **Write and verify.** Re-serialize the data block (indent 2), read the file back, and assert:
    - it parses, and `features[]` / `items[]` / `testcases[]` / `suggestions[]` / `audits[]` lengths are
-     unchanged;
+     unchanged, and `items[]` is byte-identical to before;
    - every row you filled now has a non-empty description;
    - **every other field of every row is byte-identical to before**, and for the rows you touched, the
      text **above** the marker is byte-identical too — abort rather than save if anything else moved;
@@ -117,17 +117,18 @@ def compose(desc, mine):                     # their text, the marker, then mine
     return (top + '\n' if top else '') + MARK + '\n' + mine
 
 # the check that matters: only the AI half of the rows you touched moved
-def scrub(doc, touched):                     # touched = {('features', 3), ('items', 0), ...}
+def scrub(doc, touched):                     # touched = {3, 7, ...} — indices into features[]
     import copy; c = copy.deepcopy(doc)
-    for arr, idx in touched:
-        c[arr][idx]['description'] = human_half(c[arr][idx].get('description'))
+    for idx in touched:
+        c['features'][idx]['description'] = human_half(c['features'][idx].get('description'))
     return c
 assert scrub(after, touched) == scrub(before, touched), 'refusing to save: something else changed'
-assert all(after[a][i]['description'].count(MARK) == 1 for a, i in touched)
-assert all(after[a][i].get('status') != 'finalized' for a, i in touched)
+assert after['items'] == before['items'], 'items are another skill\'s business'
+assert all(after['features'][i]['description'].count(MARK) == 1 for i in touched)
+assert all(after['features'][i].get('status') != 'finalized' for i in touched)
 ```
 
-10. **Report**: how many descriptions were written per table, which rows were skipped and why
+10. **Report**: how many feature descriptions were written, which rows were skipped and why
     (finalized, no name), which ones already had user text you wrote under, which had no source
     backing them or no category, and the reminder to **reload the tab**.
 
@@ -138,6 +139,6 @@ assert all(after[a][i].get('status') != 'finalized' for a, i in touched)
   Reading their half is for not repeating it, never for sourcing your own.
 - A `finalized` row is closed. Not "probably fine to touch" — closed.
 - Everything you write sits under the marker, so an unmarked line is a human's by definition.
-- This skill's licence to write rows is exactly one field wide. Everything else still goes through the
-  suggestion / audit inbox.
+- This skill's licence to write rows is exactly one field wide, on one table. Everything else still
+  goes through the suggestion / audit inbox.
 - No source, no specifics: a modest description beats a confident invention.
