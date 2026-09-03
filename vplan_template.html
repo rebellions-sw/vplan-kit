@@ -515,7 +515,7 @@ function sel(path,opts,{cls=''}={}){
    deleting the AI half removes the badge with it, because the badge is just "does this contain the
    marker". Keep the string in one place; the skill writes exactly this. */
 const AI_MARK='=== AI ===';
-const AI_BADGE=`AI 채움 — ${AI_MARK} 아래쪽`;
+const AI_BADGE=AI_MARK;
 /* The badge element is always in the DOM, empty when there is no marker, because typing must update
    it without a re-render: the input handler writes its text directly (see the `input` listener). A
    badge that only refreshed on the next render() would sit there claiming AI authorship of text the

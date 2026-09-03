@@ -17,9 +17,9 @@ test('the badge follows the marker, not a flag', async ({ page }) => {
     render();
   }, MARK);
 
-  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+  await expect(descRows(page).nth(0)).toContainText(MARK);
   await expect(descRows(page).nth(0)).toContainText('사람이 쓴 줄');
-  await expect(descRows(page).nth(1)).not.toContainText('AI 채움');
+  await expect(page.locator('[data-aibadge="features.1.description"]')).toHaveText('');
 });
 
 test('deleting the AI half takes the badge with it', async ({ page }) => {
@@ -29,11 +29,11 @@ test('deleting the AI half takes the badge with it', async ({ page }) => {
     DATA.features[0].description = `mine\n${m}\n- theirs`;
     render();
   }, MARK);
-  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+  await expect(descRows(page).nth(0)).toContainText(MARK);
 
   // the user keeps their own text and drops the marker section
   await page.evaluate(() => { DATA.features[0].description = 'mine'; render(); });
-  await expect(descRows(page).nth(0)).not.toContainText('AI 채움');
+  await expect(page.locator('[data-aibadge="features.0.description"]')).toHaveText('');
 });
 
 test('editing above the marker keeps the badge', async ({ page }) => {
@@ -45,7 +45,7 @@ test('editing above the marker keeps the badge', async ({ page }) => {
   await cell.click();
   await page.keyboard.type('!');                       // a human keystroke in their own half
   await page.evaluate(() => render());
-  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+  await expect(descRows(page).nth(0)).toContainText(MARK);
   expect(await page.evaluate(() => DATA.features[0].description)).toContain(await page.evaluate(() => AI_MARK));
 });
 
@@ -67,7 +67,7 @@ test('deleting the marker line clears the badge as you type, with no re-render',
   await seed(page);
   await page.evaluate((m) => { DATA.features[0].description = `mine\n${m}\n- theirs`; render(); }, MARK);
   const badge = page.locator('[data-aibadge="features.0.description"]');
-  await expect(badge).toHaveText(/AI 채움/);
+  await expect(badge).toHaveText(MARK);
 
   // select the whole cell and retype only the human half — the badge must go without a render()
   const cell = page.locator('.cell[data-path="features.0.description"]');
@@ -80,7 +80,7 @@ test('deleting the marker line clears the badge as you type, with no re-render',
   // and typing a marker back brings it straight back
   await page.keyboard.press('Enter');
   await page.keyboard.type(MARK);
-  await expect(badge).toHaveText(/AI 채움/);
+  await expect(badge).toHaveText(MARK);
 });
 
 test('the badge element is there even when a description has no marker', async ({ page }) => {
