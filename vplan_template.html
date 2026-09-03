@@ -128,9 +128,7 @@ body{
 td > select.cell{width:100%}
 select.cell.phase{min-width:128px}
 .refcell{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-/* Verified by | Related to — split down the middle, independent of the table's column widths */
-.halfrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:900px){.halfrow{grid-template-columns:1fr}}
+
 .reflink{display:inline-flex;align-items:center;gap:3px;padding:2px 4px 2px 7px;border-radius:999px;
   background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap;max-width:100%}
 .reflink > .peek{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -760,15 +758,17 @@ VIEW.features=()=>{
     <td>${sel(`features.${i}.status`,E.status)}</td>
     <td class="actions">${confirmCk('features',i)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
-      <td colspan="5">${(()=>{
+      ${(()=>{
         const verified=field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
           ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`);
         // a command row is the thing others point at; giving it its own Related to invites F↔F loops
-        if(f.category===REL_CAT) return verified;
-        return `<div class="halfrow">${verified}
-          ${field('Related to',`<div class="refcell">${refChips('rel',f.id,rel)}
-            ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}</div>`;
-      })()}</td></tr>
+        if(f.category===REL_CAT) return `<td colspan="5">${verified}</td>`;
+        /* Two cells rather than a grid: the split then falls exactly on a column boundary, so
+           Related to starts where PHASE starts however wide the Feature column happens to be. */
+        return `<td colspan="2">${verified}</td>
+        <td colspan="3">${field('Related to',`<div class="refcell">${refChips('rel',f.id,rel)}
+          ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}</td>`;
+      })()}</tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>

@@ -49,18 +49,20 @@ test('picking one adds a chip, and the × removes it', async ({ page }) => {
   expect(await page.evaluate(() => DATA.features[0].related_refs)).toEqual([]);
 });
 
-test('Verified by and Related to sit side by side, halving the row', async ({ page }) => {
+test('Related to starts exactly where the Phase column starts', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await threeFeatures(page);
 
-  const half = page.locator('.halfrow').first();
-  await expect(half).toContainText('Verified by');
-  await expect(half).toContainText('Related to');
-  const [a, b] = await half.locator(':scope > .field').all();
-  const boxA = await a.boundingBox(), boxB = await b.boundingBox();
-  expect(boxB.x).toBeGreaterThan(boxA.x + boxA.width - 20);       // side by side, not stacked
-  expect(Math.abs(boxA.width - boxB.width)).toBeLessThan(20);      // and roughly equal halves
+  const sub = page.locator('tr.subrow').filter({ hasText: 'Related to' }).first();
+  await expect(sub).toContainText('Verified by');
+  const rel = await sub.locator('td', { hasText: 'Related to' }).boundingBox();
+  const phase = await page.locator('thead th', { hasText: 'Phase' }).first().boundingBox();
+  expect(Math.abs(rel.x - phase.x)).toBeLessThan(1.5);            // same column boundary
+
+  // a command row has no second cell: Verified by spans the rest of the table
+  const cmd = page.locator('tr.subrow').nth(1);
+  await expect(cmd).not.toContainText('Related to');
 });
 
 test('lint flags a link that no longer points at a command feature, and a dangling one', async ({ page }) => {
