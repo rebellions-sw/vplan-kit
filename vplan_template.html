@@ -262,6 +262,7 @@ td{padding:4px 6px;vertical-align:top}   /* no per-row rule: blocks are separate
 td.actions{white-space:nowrap;text-align:center;width:1%}
 th.th-confirm{text-align:center}
 .idbtns{display:flex;gap:3px;margin-top:3px;padding-left:4px}
+.idbtns > .btn.icon[disabled]{opacity:.25;cursor:default}
 /* an audit card's before → after pair: the row as it stands, then the editable proposal */
 .afix{display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:10px;align-items:start;margin-top:6px}
 .afix-was{font-size:12px;color:var(--ink-3);padding-top:16px;overflow-wrap:anywhere}
@@ -617,10 +618,15 @@ function confirmCk(arrPath,i){
   const reviewed=((get(arrPath)||[])[i]||{}).reviewed;
   return `<input type="checkbox" class="chk rowsel"${isSnapshot()?' disabled':''} data-path="${arrPath}.${i}.reviewed"${reviewed?' checked':''} title="확정">`;
 }
-/* dup/del live under the ID value in the Features / Verification Items tables. */
-function rowDupDel(arrPath,i){
+/* dup/del/move live under the ID value in the Features / Verification Items tables. `vi` is the row's
+   place in the VISIBLE list and `n` its length — the ends are disabled rather than silently doing
+   nothing, and a filtered-out row never becomes an invisible obstacle to step over. */
+function rowDupDel(arrPath,i,vi,n){
+  const mv=(dir,label,ch)=>`<button class="btn icon" data-act="move" data-arr="${arrPath}" data-i="${i}"
+      data-dir="${dir}" title="${label}"${(dir<0?vi===0:vi===n-1)?' disabled':''}>${ch}</button>`;
   return `<button class="btn icon" data-act="dup" data-arr="${arrPath}" data-i="${i}" title="복제">⧉</button>
-    <button class="btn icon" data-act="del" data-arr="${arrPath}" data-i="${i}" title="삭제">✕</button>`;
+    <button class="btn icon" data-act="del" data-arr="${arrPath}" data-i="${i}" title="삭제">✕</button>
+    ${mv(-1,'위로 이동','↑')}${mv(1,'아래로 이동','↓')}`;
 }
 /* testcases / coverage rows keep the old combined trailing cell: grip + checkbox + dup/del. */
 function rowCtrls(arrPath,i){ return rowGrip(arrPath,i)+confirmCk(arrPath,i)+rowDupDel(arrPath,i); }
@@ -705,7 +711,7 @@ VIEW.features=()=>{
     <th style="width:26px"></th>${sortTh('ID','features','id','width:52px')}${filterTh(catHead(),'features','category','category','width:170px')}<th>Feature</th>${filterTh('Phase','features','phase','phase','width:150px')}
     ${filterTh('Definition','features','status','status','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
   </tr></thead><tbody>
-  ${rowsOf('features').map(({r:f,i})=>{
+  ${rowsOf('features').map(({r:f,i},vi,vis_)=>{
     const vis=DATA.items.filter(it=>(it.feature_refs||[]).includes(f.id)).map(it=>it.id);
     return `<tr class="row">
     <td class="gripcell">${rowGrip('features',i)}</td>
@@ -715,7 +721,7 @@ VIEW.features=()=>{
     <td>${sel(`features.${i}.phase`,E.phase,{cls:'phase'})}</td>
     <td>${sel(`features.${i}.status`,E.status)}</td>
     <td class="actions">${confirmCk('features',i)}</td></tr>
-    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('features',i)}</div></td>
+    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
       <td colspan="5">${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
         ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1093,7 +1099,7 @@ VIEW.items=()=>`
     <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}${filterTh(catHead(),'items','category','category','width:170px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
     ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
   </tr></thead><tbody>
-  ${rowsOf('items').map(({r:it,i})=>`<tr class="row">
+  ${rowsOf('items').map(({r:it,i},vi,vis_)=>`<tr class="row">
     <td class="gripcell">${rowGrip('items',i)}</td>
     <td>${cell(`items.${i}.id`,{cls:'id'})}</td>
     <td>${sel(`items.${i}.category`,E.category)}</td>
@@ -1102,7 +1108,7 @@ VIEW.items=()=>`
     <td>${sel(`items.${i}.status`,E.status)}</td>
     <td>${sel(`items.${i}.implemented`,E.implemented)}</td>
     <td class="actions">${confirmCk('items',i)}</td></tr>
-    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('items',i)}</div></td>
+    <tr class="subrow"><td></td><td><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div></td>
       <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
         ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
       <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
@@ -1523,7 +1529,7 @@ document.addEventListener('click',e=>{
   const act=b.dataset.act;
 
   // a snapshot is read-only: viewing acts (fold, filter, sort, lint, export) stay, mutations do not
-  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-reject','audit-reopen','tog','unlink'].includes(act)){
+  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-reject','audit-reopen','move','tog','unlink'].includes(act)){
     toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return;
   }
 
@@ -1551,6 +1557,15 @@ document.addEventListener('click',e=>{
     const arr=get(b.dataset.arr), i=+b.dataset.i;
     const label=arr[i]&&arr[i].id?arr[i].id:'항목';
     if(confirm(label+' 삭제할까요?')){ arr.splice(i,1); markDirty(); render(); } return;
+  }
+  if(act==='move'){
+    const arrPath=b.dataset.arr, i=+b.dataset.i, dir=+b.dataset.dir;
+    const arr=get(arrPath); if(!arr) return;
+    const vis=rowsOf(arrPath).map(x=>x.i);          // original indices, in the order they are shown
+    const at=vis.indexOf(i), j=vis[at+dir];
+    if(at<0||j==null) return;                       // already at the end of what is visible
+    [arr[i],arr[j]]=[arr[j],arr[i]];                // swap, so rows hidden between them stay put
+    markDirty(); render(); return;
   }
   if(act==='dup'){
     const arr=get(b.dataset.arr), i=+b.dataset.i;
