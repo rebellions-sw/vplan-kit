@@ -41,7 +41,8 @@ essay. A description answers what must be true:
 What the design does, and what "correct" means for it — concrete enough that someone can tell a
 passing run from a failing one.
 
-**`name` and `category` together decide where to look**, and the category sets the shape of the sentence:
+**`name`, `category` and `related_refs` decide where to look**, and the category sets the shape of
+the sentence:
 
 | category | read for it | the description states |
 |---|---|---|
@@ -52,9 +53,16 @@ passing run from a failing one.
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
 
+**`related_refs` narrows the search to a command.** A behavior row linked to a command feature is
+about that command's flow, so resolve the link to the command row's **name** and read the sources
+under that command — "handling invalidated request" alone is ambiguous, the same words under the
+Invalidation command are not. Take the linked row's **identity**, never its text: the content still
+comes from the sources, so a wrong sibling description cannot leak into this one. Say in the report
+which command each description was scoped to.
+
 Language follows the row's own name — Korean name, Korean description; English name, English one; and
-a mixed name keeps the source's technical terms as they are. That is the only thing the plan's own text
-decides: **the content comes from the sources, never from other rows.** Keep the vocabulary of the
+a mixed name keeps the source's technical terms as they are. That, and which command a link points at,
+are the only things the plan decides: **the content comes from the sources, never from other rows.** Keep the vocabulary of the
 sources — a signal or register named in the MAS is named the same way here.
 
 ## The run
@@ -81,10 +89,12 @@ d = json.loads(s[i+len(tag):j])
 5. **Read the Input Sources** from `meta`, skipping blanks silently: `uarch` (URL — Notion tools for a
    Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Search
    them per row by **name + category** (the table above says which source a category points at).
-   **Those three are the whole input.** Do not lean on the plan's surroundings — not the row's phase,
-   not what it links to, not what neighbouring rows say. A description must be defensible from the
-   sources alone, and a plan is not evidence about the design: an inference drawn from a sibling row
-   inherits that row's mistakes and reads as if the source had said it.
+   `related_refs` joins them as a search key: resolve each id to that command row's name and read the
+   sources under that command. **That is the whole input** — the row's name, category and links, plus
+   the sources themselves. Nothing else in the plan counts: not the row's phase, not what neighbouring
+   rows say, and not the linked row's own description. A description must be defensible from the
+   sources alone, because a plan is not evidence about the design: an inference drawn from a sibling
+   row's text inherits its mistakes and reads as if the source had said it.
 6. **Write each description from the sources where they cover the row**, and keep it to one or two
    sentences. Where the sources are silent, say only what the row's own name and category already
    imply must hold — never invent a signal name, register field, or numeric limit no source states,
@@ -129,8 +139,9 @@ assert all(after['features'][i].get('status') != 'finalized' for i in touched)
 ```
 
 10. **Report**: how many feature descriptions were written, which rows were skipped and why
-    (finalized, no name), which ones already had user text you wrote under, which had no source
-    backing them or no category, and the reminder to **reload the tab**.
+    (finalized, no name), which ones already had user text you wrote under, which command each
+    `related_refs` link scoped a description to, which had no source backing them or no category,
+    and the reminder to **reload the tab**.
 
 ## Rules that outlive this skill
 
