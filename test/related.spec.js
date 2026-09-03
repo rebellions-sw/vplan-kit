@@ -106,3 +106,13 @@ test('chips read as names, with the id in the tooltip and a fallback when there 
   await page.evaluate(() => { DATA.features[1].name = '   '; render(); });
   await expect(page.locator('[data-act="peek"][data-id="F02"]')).toHaveText('F02');   // never blank
 });
+
+test("an item's Link to chips stay ids", async ({ page }) => {
+  await openVplan(page);
+  await seed(page);            // VI001 links F01 "first feature"
+  await page.click('[data-tab="items"]');
+
+  const chip = page.locator('[data-act="peek"][data-id="F01"]');
+  await expect(chip).toHaveText('F01');
+  await expect(chip).toHaveAttribute('title', /^F01/);
+});

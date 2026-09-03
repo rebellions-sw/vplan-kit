@@ -524,13 +524,15 @@ function togChips(path,values,cur){
 }
 /* A chip shows the row's NAME, not its id: F13 says nothing at a glance. The id stays in the tooltip
    (and is what is stored), and an unnamed or deleted row falls back to showing the id so the chip is
-   never blank. The name half opens the peek drawer; the × still unlinks. */
+   never blank. The name half opens the peek drawer; the × still unlinks.
+   The exception is an item's `Link to`: an item row is read against its feature ids, and the feature
+   names are long enough to swamp the row it sits in. */
 function refChips(kind,ownerId,ids){
   if(!ids.length) return `<span class="badge b-mut">none</span>`;
   const peek=kind==='vref'?'item':'feature';
   return ids.map(id=>{
     const row=(peek==='item'?DATA.items:DATA.features).find(r=>r.id===id);
-    const label=(row&&row.name&&row.name.trim())?row.name.trim():id;
+    const label=(kind!=='fref'&&row&&row.name&&row.name.trim())?row.name.trim():id;
     return `<span class="reflink"><button class="peek" data-act="peek" data-peek="${peek}"
       data-id="${esc(id)}" title="${esc(id)}${row?'':' — 플랜에 없음'} · 내용 보기">${esc(label)}</button><button class="x" data-act="unlink" data-kind="${kind}"
       data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button></span>`;
