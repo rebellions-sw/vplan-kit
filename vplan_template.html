@@ -261,7 +261,13 @@ th{text-align:left;font-weight:700;font-size:11.5px;line-height:1.3;color:var(--
 td{padding:4px 6px;vertical-align:top}   /* no per-row rule: blocks are separated by tr.row's top border */
 td.actions{white-space:nowrap;text-align:center;width:1%}
 th.th-confirm{text-align:center}
-.idbtns{display:flex;gap:3px;margin-top:3px;padding-left:4px}
+/* one segmented group, flush with the cell edge above it: shared borders (negative margin collapses
+   the doubled 1px seam) and only the outer corners rounded */
+.idbtns{display:flex;gap:0;margin-top:3px}
+.idbtns > .btn.icon{border-radius:0;margin-left:-1px}
+.idbtns > .btn.icon:first-child{border-radius:5px 0 0 5px;margin-left:0}
+.idbtns > .btn.icon:last-child{border-radius:0 5px 5px 0}
+.idbtns > .btn.icon:hover{position:relative;z-index:1}   /* the hovered border on top of its neighbours */
 .idbtns > .btn.icon[disabled]{opacity:.25;cursor:default}
 /* an audit card's before → after pair: the row as it stands, then the editable proposal */
 .afix{display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:10px;align-items:start;margin-top:6px}
