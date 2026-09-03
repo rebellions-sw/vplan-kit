@@ -630,9 +630,9 @@ function confirmCk(arrPath,i){
 function rowDupDel(arrPath,i,vi,n){
   const mv=(dir,label,ch)=>`<button class="btn icon" data-act="move" data-arr="${arrPath}" data-i="${i}"
       data-dir="${dir}" title="${label}"${(dir<0?vi===0:vi===n-1)?' disabled':''}>${ch}</button>`;
-  return `<button class="btn icon" data-act="dup" data-arr="${arrPath}" data-i="${i}" title="복제">⧉</button>
-    <button class="btn icon" data-act="del" data-arr="${arrPath}" data-i="${i}" title="삭제">✕</button>
-    ${mv(-1,'위로 이동','↑')}${mv(1,'아래로 이동','↓')}`;
+  return `${mv(-1,'위로 이동','↑')}${mv(1,'아래로 이동','↓')}
+    <button class="btn icon" data-act="dup" data-arr="${arrPath}" data-i="${i}" title="복제">⧉</button>
+    <button class="btn icon" data-act="del" data-arr="${arrPath}" data-i="${i}" title="삭제">✕</button>`;
 }
 /* testcases / coverage rows keep the old combined trailing cell: grip + checkbox + dup/del. */
 function rowCtrls(arrPath,i){ return rowGrip(arrPath,i)+confirmCk(arrPath,i)+rowDupDel(arrPath,i); }
