@@ -52,9 +52,10 @@ essay. A description answers what must be true:
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
 
-Match the plan's own voice: if existing descriptions are Korean, write Korean; if English, English; if
-the plan is empty, follow the language of the row names. Keep the vocabulary of the sources — a signal
-or register named in the MAS is named the same way here.
+Language follows the row's own name — Korean name, Korean description; English name, English one; and
+a mixed name keeps the source's technical terms as they are. That is the only thing the plan's own text
+decides: **the content comes from the sources, never from other rows.** Keep the vocabulary of the
+sources — a signal or register named in the MAS is named the same way here.
 
 ## The run
 
@@ -79,14 +80,17 @@ d = json.loads(s[i+len(tag):j])
    report that.
 5. **Read the Input Sources** from `meta`, skipping blanks silently: `uarch` (URL — Notion tools for a
    Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Search
-   them per row by **name + category** (the table above says which source a category points at), and
-   read the row's own context — phase, `feature_refs`, neighbouring descriptions — so the wording
-   lands consistently.
+   them per row by **name + category** (the table above says which source a category points at).
+   **Those three are the whole input.** Do not lean on the plan's surroundings — not the row's phase,
+   not what it links to, not what neighbouring rows say. A description must be defensible from the
+   sources alone, and a plan is not evidence about the design: an inference drawn from a sibling row
+   inherits that row's mistakes and reads as if the source had said it.
 6. **Write each description from the sources where they cover the row**, and keep it to one or two
-   sentences. Where the sources are silent, still draft from the name and the surrounding plan, but stay
-   modest — say what the name implies must hold, never invent a signal name, register field, or numeric
-   limit no source states. **List every unsourced row in the report.** Never write a description that
-   only repeats the name, and never leave a placeholder like "TBD" — skip the row instead.
+   sentences. Where the sources are silent, say only what the row's own name and category already
+   imply must hold — never invent a signal name, register field, or numeric limit no source states,
+   and never borrow one from another row. **List every unsourced row in the report.** Never write a
+   description that only repeats the name, and never leave a placeholder like "TBD" — skip the row
+   instead.
 7. **Write below the marker, never over the user's text.** Split the existing description at the first
    `=== AI ===`: everything above it is theirs and must come back byte-identical; everything below is
    your own previous run, to be replaced. Then join `their text` + `\n` + `=== AI ===` + `\n` + your
@@ -131,6 +135,7 @@ assert all(after[a][i].get('status') != 'finalized' for a, i in touched)
 
 - Never edit above the marker. What the user wrote is theirs even when it is wrong — if it disagrees
   with the source, say so under the marker (or leave it to `vplan_audit`), do not correct it in place.
+  Reading their half is for not repeating it, never for sourcing your own.
 - A `finalized` row is closed. Not "probably fine to touch" — closed.
 - Everything you write sits under the marker, so an unmarked line is a human's by definition.
 - This skill's licence to write rows is exactly one field wide. Everything else still goes through the
