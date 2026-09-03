@@ -61,3 +61,31 @@ test('the marker is plain document text and round-trips through a save', async (
   expect(data.items[0].description).toContain(MARK);
   expect('description_ai' in data.items[0]).toBe(false);      // no flag field any more
 });
+
+test('deleting the marker line clears the badge as you type, with no re-render', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate((m) => { DATA.features[0].description = `mine\n${m}\n- theirs`; render(); }, MARK);
+  const badge = page.locator('[data-aibadge="features.0.description"]');
+  await expect(badge).toHaveText(/AI 채움/);
+
+  // select the whole cell and retype only the human half — the badge must go without a render()
+  const cell = page.locator('.cell[data-path="features.0.description"]');
+  await cell.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('mine only');
+  await expect(badge).toHaveText('');                       // cleared live
+  expect(await page.evaluate(() => DATA.features[0].description)).toBe('mine only');
+
+  // and typing a marker back brings it straight back
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(MARK);
+  await expect(badge).toHaveText(/AI 채움/);
+});
+
+test('the badge element is there even when a description has no marker', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await expect(page.locator('[data-aibadge="features.0.description"]')).toHaveCount(1);
+  await expect(page.locator('[data-aibadge="features.0.description"]')).toHaveText('');
+});

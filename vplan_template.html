@@ -515,7 +515,16 @@ function sel(path,opts,{cls=''}={}){
    deleting the AI half removes the badge with it, because the badge is just "does this contain the
    marker". Keep the string in one place; the skill writes exactly this. */
 const AI_MARK='=== AI ===';
-function aiMark(row){ return row&&String(row.description||'').includes(AI_MARK) ? `AI 채움 — ${AI_MARK} 아래쪽` : ''; }
+const AI_BADGE=`AI 채움 — ${AI_MARK} 아래쪽`;
+/* The badge element is always in the DOM, empty when there is no marker, because typing must update
+   it without a re-render: the input handler writes its text directly (see the `input` listener). A
+   badge that only refreshed on the next render() would sit there claiming AI authorship of text the
+   user had already taken over. */
+function descField(label,path,row,ph){
+  const on=String((row&&row.description)||'').includes(AI_MARK);
+  return `<div class="field"><label>${esc(label)}
+      <span class="sub ai" data-aibadge="${path}">${on?esc(AI_BADGE):''}</span></label>${cell(path,{cls:'boxed',ph})}</div>`;
+}
 function field(label,inner,sub,cls){
   return `<div class="field"><label>${esc(label)}${sub?` <span class="sub${cls?' '+cls:''}">${esc(sub)}</span>`:''}</label>${inner}</div>`;
 }
@@ -810,7 +819,7 @@ VIEW.features=()=>{
           ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}</td>`;
       })()}</tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}),aiMark(f),'ai')}</td></tr>
+      <td colspan="5">${descField('Description',`features.${i}.description`,f,'what must be verified, and what correct means')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Notes',cell(`features.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`}).join('')}
   </tbody></table></div></div>
@@ -1204,7 +1213,7 @@ VIEW.items=()=>`
       <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
       <td colspan="3">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${field('Description',cell(`items.${i}.description`,{cls:'boxed',ph:'what must hold, and how it is judged'}),aiMark(it),'ai')}</td></tr>
+      <td colspan="6">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="6">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1624,6 +1633,10 @@ document.addEventListener('input',e=>{
   }
   if(isSnapshot()) return;                 // a snapshot is read-only: nothing writes into DATA
   const el=e.target.closest('[data-path]'); if(!el) return;
+  /* the AI badge tracks the marker as it is typed — deleting the `=== AI ===` line has to clear the
+     label right away, and no render() may happen here (it would take the caret with it) */
+  const badge=$(`[data-aibadge="${el.dataset.path}"]`);
+  if(badge) badge.textContent = el.textContent.includes(AI_MARK) ? AI_BADGE : '';
   if(el.type==='checkbox'){ set(el.dataset.path,el.checked); markDirty(); return; }
   const path=el.dataset.path, kind=el.dataset.kind;
   let v = (el.tagName==='SELECT') ? el.value : el.textContent;
