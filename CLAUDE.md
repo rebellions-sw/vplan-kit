@@ -15,14 +15,15 @@ The skills, and what each is allowed to touch:
 | `vplan_create` | the template | a new `~/vplans/vplan_<IP>.html` |
 | `vplan_suggest` | Input Sources + the plan | `suggestions[]` — proposals for rows that do not exist yet |
 | `vplan_audit` | Input Sources + the plan | `audits[]` — findings against rows that do (missing / insufficient / mismatch) |
-| `vplan_fill_description` | Input Sources + the plan | **rows, one field wide**: a `description` that is empty, never one a human wrote — and every one it writes is marked `description_ai: true` |
+| `vplan_fill_description` | Input Sources + the plan | **rows, one field wide**: `description` on rows that are not `finalized`, written below the `=== AI ===` marker so the user's own text above it is untouched |
 
 Both inbox skills exclude everything already decided — rows, and pending, accepted or rejected cards
 alike. `vplan_fill_description` is the single, deliberate exception to "agents never write rows": it may
-fill an empty `description` on `features[]` / `items[]` and nothing else, and must verify before saving
-that no other field moved. What it writes is labelled: `description_ai: true` renders a badge beside
-the Description label, and the `input` handler deletes the flag on the first human keystroke in that
-description — the mark tracks authorship, so it lasts exactly as long as the text does.
+write `description` on `features[]` / `items[]` — never on a row whose `status` is `finalized` — and
+must verify before saving that no other field moved. Authorship is carried by the text itself:
+`AI_MARK` (`=== AI ===`) on its own line separates the user's half above from the agent's below, the
+Description label shows an "AI 채움" badge whenever a description contains it, and a re-run replaces
+everything from the marker down. No flag field: delete the marker section and the badge goes with it.
 
 `test/` is a Playwright suite that drives the real file in a real browser. There is no unit-test layer —
 the whole thing is DOM behaviour, so that is where the tests are.

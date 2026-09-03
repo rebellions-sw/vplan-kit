@@ -6,8 +6,27 @@ description: Fill in the Description of vplan rows that have a name but no descr
 # vplan_fill_description
 
 The user writes the titles; this skill writes the descriptions. It is the one skill allowed to write
-into `features[]` / `items[]` directly — and only into a `description` that is **empty**. Text a human
-already wrote is never touched, and no other field is ever written.
+into `features[]` / `items[]` directly — and only into `description`, never another field.
+
+Two rules decide what it may touch:
+
+- **`status: "finalized"` is off limits.** A finalized Definition is a decision; leave the row exactly
+  as it is and say in the report that you skipped it.
+- **Any other row is fair game, even one that already has text.** You never overwrite what the user
+  wrote: their text stays where it is, and yours goes **below a marker line**, so the two hands are
+  always distinguishable.
+
+```
+<whatever the user already wrote — untouched>
+=== AI ===
+- your line
+- your second line
+```
+
+The marker is exactly `=== AI ===` on a line of its own (`AI_MARK` in the renderer, which puts an
+"AI 채움" badge beside the Description label whenever a description contains it). On a re-run, replace
+everything **from the marker down** with your new text — never stack a second marker, never leave two
+AI sections in one description. A row with no text at all gets the marker too, as its first line.
 
 Read the schema SSOT first: `$KIT/CLAUDE.md`, where `KIT=$(cat ~/.vplan-kit/kit-path)` is the vplan-kit
 clone (missing pointer ⇒ the kit was never installed — tell the user to run `./install.sh`).
@@ -54,9 +73,10 @@ i = s.rindex(tag); j = s.index('</script>', i)
 d = json.loads(s[i+len(tag):j])
 ```
 
-4. **Pick the rows to fill**: every row in `features[]` and `items[]` whose `name` is non-empty and whose
-   `description` is empty or whitespace. A row with no name is not ready — skip it and say so. If nothing
-   qualifies, stop and report that; do not "improve" descriptions that already exist.
+4. **Pick the rows to fill**: every row in `features[]` and `items[]` whose `name` is non-empty and
+   whose `status` is not `finalized` — with or without an existing description. A row with no name is
+   not ready, and a finalized row is closed; skip both and say so. If nothing qualifies, stop and
+   report that.
 5. **Read the Input Sources** from `meta`, skipping blanks silently: `uarch` (URL — Notion tools for a
    Notion URL, else WebFetch), `ref_model` (local path — read the code), `csr` (local .xlsx). Search
    them per row by **name + category** (the table above says which source a category points at), and
@@ -67,10 +87,10 @@ d = json.loads(s[i+len(tag):j])
    modest — say what the name implies must hold, never invent a signal name, register field, or numeric
    limit no source states. **List every unsourced row in the report.** Never write a description that
    only repeats the name, and never leave a placeholder like "TBD" — skip the row instead.
-7. **Mark every description you write** with `description_ai: true` on that row — the badge beside the
-   Description label is how a human tells your text from their own. Never set it on a row you did not
-   write, and never remove it: the page drops the flag itself the moment someone edits that
-   description. Rows you skip keep no flag at all.
+7. **Write below the marker, never over the user's text.** Split the existing description at the first
+   `=== AI ===`: everything above it is theirs and must come back byte-identical; everything below is
+   your own previous run, to be replaced. Then join `their text` + `\n` + `=== AI ===` + `\n` + your
+   new lines (drop the leading newline when their half is empty).
 8. **Write nothing else.** No new rows, no `suggestions[]` / `audits[]` cards, no `oracle`, `category`,
    `phase`, `status`, `notes`, no id renumbering. If a row needs more than a description, that is
    `vplan_audit`'s job — mention it in the report.
@@ -78,29 +98,41 @@ d = json.loads(s[i+len(tag):j])
    - it parses, and `features[]` / `items[]` / `testcases[]` / `suggestions[]` / `audits[]` lengths are
      unchanged;
    - every row you filled now has a non-empty description;
-   - **every other field of every row is byte-identical to before** — diff the before/after JSON with
-     the filled descriptions and their `description_ai` flags removed, and abort rather than save if
-     anything else moved.
+   - **every other field of every row is byte-identical to before**, and for the rows you touched, the
+     text **above** the marker is byte-identical too — abort rather than save if anything else moved;
+   - no row you touched has `status: "finalized"`, and no description holds two markers.
 
 ```python
-# the check that matters: nothing but the empty descriptions moved
-def scrub(doc, filled):                      # filled = {('features', 3), ('items', 0), ...}
+MARK = '=== AI ==='
+
+def human_half(desc):                        # what the user owns: everything above the first marker
+    return (desc or '').split(MARK)[0].rstrip('\n')
+
+def compose(desc, mine):                     # their text, the marker, then mine
+    top = human_half(desc)
+    return (top + '\n' if top else '') + MARK + '\n' + mine
+
+# the check that matters: only the AI half of the rows you touched moved
+def scrub(doc, touched):                     # touched = {('features', 3), ('items', 0), ...}
     import copy; c = copy.deepcopy(doc)
-    for arr, idx in filled:
-        c[arr][idx]['description'] = ''
-        c[arr][idx].pop('description_ai', None)
+    for arr, idx in touched:
+        c[arr][idx]['description'] = human_half(c[arr][idx].get('description'))
     return c
-assert scrub(after, filled) == before, 'refusing to save: something other than the descriptions changed'
+assert scrub(after, touched) == scrub(before, touched), 'refusing to save: something else changed'
+assert all(after[a][i]['description'].count(MARK) == 1 for a, i in touched)
+assert all(after[a][i].get('status') != 'finalized' for a, i in touched)
 ```
 
-10. **Report**: how many descriptions were filled per table, which rows were skipped and why (no name,
-   already described), which ones had no source backing them or no category, and the reminder to
-   **reload the tab**.
+10. **Report**: how many descriptions were written per table, which rows were skipped and why
+    (finalized, no name), which ones already had user text you wrote under, which had no source
+    backing them or no category, and the reminder to **reload the tab**.
 
 ## Rules that outlive this skill
 
-- An empty description is an invitation; a written one is the user's. Never overwrite, never "polish".
-- Everything you write is labelled as yours. An unmarked description is a human's, by definition.
+- Never edit above the marker. What the user wrote is theirs even when it is wrong — if it disagrees
+  with the source, say so under the marker (or leave it to `vplan_audit`), do not correct it in place.
+- A `finalized` row is closed. Not "probably fine to touch" — closed.
+- Everything you write sits under the marker, so an unmarked line is a human's by definition.
 - This skill's licence to write rows is exactly one field wide. Everything else still goes through the
   suggestion / audit inbox.
 - No source, no specifics: a modest description beats a confident invention.

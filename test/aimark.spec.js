@@ -1,69 +1,63 @@
 import { test, expect } from '@playwright/test';
 import { openVplan, seed } from './helpers.js';
 
-/* vplan_fill_description marks what it wrote with description_ai. The mark is a claim about
-   authorship, so the first human keystroke in that description retires it. */
+/* vplan_fill_description writes below a marker line, leaving whatever the user wrote above it. The
+   marker is the label: the badge is on whenever the description contains it, so deleting the AI half
+   takes the badge with it and no flag can go stale. */
 
-test('a marked description shows the badge; an unmarked one does not', async ({ page }) => {
+const MARK = '=== AI ===';
+const descRows = page => page.locator('tr.subrow').filter({ hasText: 'Description' });
+
+test('the badge follows the marker, not a flag', async ({ page }) => {
   await openVplan(page);
   await seed(page);
-  await page.evaluate(() => {
-    DATA.features[0].description = 'written by the agent';
-    DATA.features[0].description_ai = true;
-    DATA.features[1].description = 'written by a person';
+  await page.evaluate((m) => {
+    DATA.features[0].description = `사람이 쓴 줄\n${m}\n- agent가 붙인 줄`;
+    DATA.features[1].description = 'written by a person only';
     render();
-  });
+  }, MARK);
 
-  const rows = page.locator('tr.subrow').filter({ hasText: 'Description' });
-  await expect(rows.nth(0)).toContainText('AI가 채움');
-  await expect(rows.nth(1)).not.toContainText('AI가 채움');
+  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+  await expect(descRows(page).nth(0)).toContainText('사람이 쓴 줄');
+  await expect(descRows(page).nth(1)).not.toContainText('AI 채움');
 });
 
-test('editing the description drops the mark', async ({ page }) => {
+test('deleting the AI half takes the badge with it', async ({ page }) => {
   await openVplan(page);
   await seed(page);
-  await page.evaluate(() => {
-    DATA.features[0].description = 'written by the agent';
-    DATA.features[0].description_ai = true;
+  await page.evaluate((m) => {
+    DATA.features[0].description = `mine\n${m}\n- theirs`;
     render();
-  });
+  }, MARK);
+  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+
+  // the user keeps their own text and drops the marker section
+  await page.evaluate(() => { DATA.features[0].description = 'mine'; render(); });
+  await expect(descRows(page).nth(0)).not.toContainText('AI 채움');
+});
+
+test('editing above the marker keeps the badge', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate((m) => { DATA.features[0].description = `mine\n${m}\n- theirs`; render(); }, MARK);
 
   const cell = page.locator('.cell[data-path="features.0.description"]');
   await cell.click();
-  await page.keyboard.type('!');
-  expect(await page.evaluate(() => 'description_ai' in DATA.features[0])).toBe(false);
-  expect(await page.evaluate(() => DATA.features[0].description)).toContain('written by the agent');
-
-  await page.evaluate(() => render());                       // the badge is gone on the next render
-  await expect(page.locator('tr.subrow').filter({ hasText: 'Description' }).first()).not.toContainText('AI가 채움');
+  await page.keyboard.type('!');                       // a human keystroke in their own half
+  await page.evaluate(() => render());
+  await expect(descRows(page).nth(0)).toContainText('AI 채움');
+  expect(await page.evaluate(() => DATA.features[0].description)).toContain(await page.evaluate(() => AI_MARK));
 });
 
-test('editing another field leaves the mark alone', async ({ page }) => {
+test('the marker is plain document text and round-trips through a save', async ({ page }) => {
   await openVplan(page);
   await seed(page);
-  await page.evaluate(() => {
-    DATA.features[0].description = 'written by the agent';
-    DATA.features[0].description_ai = true;
-    render();
-  });
-
-  await page.locator('.cell[data-path="features.0.notes"]').click();
-  await page.keyboard.type('a note');
-  expect(await page.evaluate(() => DATA.features[0].description_ai)).toBe(true);
-});
-
-test('the mark is saved with the plan, so it survives a reload', async ({ page }) => {
-  await openVplan(page);
-  await seed(page);
-  await page.evaluate(() => {
-    DATA.items[0].description = 'agent text';
-    DATA.items[0].description_ai = true;
-    render();
-  });
+  await page.evaluate((m) => { DATA.items[0].description = `mine\n${m}\n- theirs`; render(); }, MARK);
 
   const saved = await page.evaluate(() => serializeDoc());
   const tag = '<script id="vplan-data" type="application/json">';
   const at = saved.lastIndexOf(tag);
   const data = JSON.parse(saved.slice(at + tag.length, saved.indexOf('</scr' + 'ipt>', at)));
-  expect(data.items[0].description_ai).toBe(true);
+  expect(data.items[0].description).toContain(MARK);
+  expect('description_ai' in data.items[0]).toBe(false);      // no flag field any more
 });

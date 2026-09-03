@@ -510,10 +510,12 @@ function sel(path,opts,{cls=''}={}){
   const extra = opts.includes(v)?'':`<option value="${esc(v)}" selected>${esc(v)}</option>`;
   return `<select class="cell ${cls}"${isSnapshot()?' disabled':''} data-path="${path}" data-kind="select">${extra}${o}</select>`;
 }
-/* `description_ai` marks a description an agent wrote (vplan_fill_description). It is a claim about
-   who wrote the text, so it survives only as long as the text: the input handler drops the flag the
-   moment a human edits that description, and the badge disappears with it. */
-function aiMark(row){ return row&&row.description_ai ? 'AI가 채움 — 고치면 표시가 사라집니다' : ''; }
+/* A description can hold both hands: what the user wrote, then `AI_MARK`, then what
+   vplan_fill_description added below it. The marker IS the label — no separate flag to go stale, and
+   deleting the AI half removes the badge with it, because the badge is just "does this contain the
+   marker". Keep the string in one place; the skill writes exactly this. */
+const AI_MARK='=== AI ===';
+function aiMark(row){ return row&&String(row.description||'').includes(AI_MARK) ? `AI 채움 — ${AI_MARK} 아래쪽` : ''; }
 function field(label,inner,sub,cls){
   return `<div class="field"><label>${esc(label)}${sub?` <span class="sub${cls?' '+cls:''}">${esc(sub)}</span>`:''}</label>${inner}</div>`;
 }
@@ -1622,10 +1624,6 @@ document.addEventListener('input',e=>{
   }
   if(isSnapshot()) return;                 // a snapshot is read-only: nothing writes into DATA
   const el=e.target.closest('[data-path]'); if(!el) return;
-  /* the AI mark is about authorship, so a human keystroke retires it — dropped before the write so
-     the row is clean whichever field the edit lands in */
-  const desc=(el.dataset.path||'').match(/^(features|items)\.(\d+)\.description$/);
-  if(desc){ const row=DATA[desc[1]][+desc[2]]; if(row&&row.description_ai) delete row.description_ai; }
   if(el.type==='checkbox'){ set(el.dataset.path,el.checked); markDirty(); return; }
   const path=el.dataset.path, kind=el.dataset.kind;
   let v = (el.tagName==='SELECT') ? el.value : el.textContent;
