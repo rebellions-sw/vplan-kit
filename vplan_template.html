@@ -128,6 +128,9 @@ body{
 td > select.cell{width:100%}
 select.cell.phase{min-width:128px}
 .refcell{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+/* Verified by | Related to — split down the middle, independent of the table's column widths */
+.halfrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:900px){.halfrow{grid-template-columns:1fr}}
 .reflink{display:inline-flex;align-items:center;gap:3px;padding:2px 4px 2px 7px;border-radius:999px;
   background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap}
 .reflink > .x{border:none;background:none;cursor:pointer;color:var(--accent);opacity:.55;font:700 12px/1 inherit;padding:0 2px}
@@ -534,6 +537,14 @@ function linkPicker(kind,ownerId,rows,label){
       ${rows.map(r=>`<option value="${esc(r.id)}">${esc(r.id)}${r.name?' · '+esc(r.name.slice(0,28)):''}</option>`).join('')}
     </select>`;
 }
+/* One-way, and the id is kept even if that feature's category later changes — data is data; lint
+   is what points out a link that no longer cites a command feature. */
+function relLink(featureId,targetId,on){
+  const f=DATA.features.find(x=>x.id===featureId); if(!f||featureId===targetId) return;
+  const refs=new Set(f.related_refs||[]);
+  on?refs.add(targetId):refs.delete(targetId);
+  f.related_refs=[...refs];
+}
 function setLink(featureId,itemId,on){
   const it=DATA.items.find(x=>x.id===itemId); if(!it) return;
   const refs=new Set(it.feature_refs||[]);
@@ -720,6 +731,7 @@ VIEW.features=()=>{
   </tr></thead><tbody>
   ${rowsOf('features').map(({r:f,i},vi,vis_)=>{
     const vis=DATA.items.filter(it=>(it.feature_refs||[]).includes(f.id)).map(it=>it.id);
+    const rel=f.related_refs||[];
     return `<tr class="row">
     <td class="gripcell">${rowGrip('features',i)}</td>
     <td>${cell(`features.${i}.id`,{cls:'id'})}</td>
@@ -729,8 +741,12 @@ VIEW.features=()=>{
     <td>${sel(`features.${i}.status`,E.status)}</td>
     <td class="actions">${confirmCk('features',i)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
-      <td colspan="5">${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
-        ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}</td></tr>
+      <td colspan="5"><div class="halfrow">
+        ${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
+          ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}
+        ${field('Related to',`<div class="refcell">${refChips('rel',f.id,rel)}
+          ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&x.id!==f.id&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}
+      </div></td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -745,6 +761,10 @@ VIEW.features=()=>{
    item cards under Verification Items — so a proposal is read next to what it would join.
    Accepted and rejected cards are never dropped. They fold into their own sections and stay in the
    file: a rejection carries the reason that stops the same proposal coming back next run. */
+/* Related to is a feature→feature link, and only command features may be cited: the interesting
+   cross-reference in this IP is "which command does this behavior belong to". Stored one-way on the
+   feature that points, so a command feature's own list stays the commands IT relates to. */
+const REL_CAT='command';
 const REJECT_WHY={
   duplicated:'Right, but the plan already has it — my matching was too loose.',
   hallucinated:'The claim itself does not hold — my extraction or quote was wrong.',
@@ -1143,7 +1163,7 @@ function commonBaseTest(){
 }
 const TEMPLATE={
   item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',judged_by:[],stimulus:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
-  feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
+  feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
     config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
@@ -1166,6 +1186,7 @@ function renumberIds(){
   const m=id=>map[id]||id;
   const remap=a=>(a||[]).map(m);
   DATA.items.forEach(it=>{ it.feature_refs=remap(it.feature_refs); });
+  DATA.features.forEach(f=>{ if(f.related_refs) f.related_refs=remap(f.related_refs); });
   DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); });
   DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
   DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
@@ -1206,6 +1227,7 @@ function lint(){
   const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
   const sugNoLbl=grp('warn','plan','rejection has no label (duplicated / hallucinated / waived)');
   const sugNoQ  =grp('warn','plan','pending suggestion has no quote — the claim cannot be checked');
+  const relCat  =grp('warn','plan',`related-to link does not point at a category ${REL_CAT} feature`);
   const audOpen =grp('warn','plan','audit findings pending review — see Audit from AI',true);
   const audNoTgt=grp('err','plan','audit card points at a row that does not exist');
   const audNoQ  =grp('warn','plan','pending audit finding has no quote — the claim cannot be checked');
@@ -1239,6 +1261,16 @@ function lint(){
     if(!f.reviewed) unRevF.ids.push(f.id);
   });
   DATA.features.forEach(f=>{ if(blanks(f).length) gapF.ids.push(f.id); });
+
+  /* a related-to link must resolve, and must still name a command feature: the category can be edited
+     after the link was made, and a link to a behavior row is a mistake worth showing. */
+  DATA.features.forEach(f=>{
+    (f.related_refs||[]).forEach(r=>{
+      const t=DATA.features.find(x=>x.id===r);
+      if(!t) dangling.ids.push(`${f.id}→${r}`);
+      else if(t.category!==REL_CAT) relCat.ids.push(`${f.id}→${r}`);
+    });
+  });
 
   DATA.items.forEach(it=>{
     (it.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${it.id}→${r}`); });
@@ -1553,8 +1585,10 @@ document.addEventListener('click',e=>{
     set(path,arr); markDirty(); render(); return;
   }
   if(act==='unlink'){
-    b.dataset.kind==='vref' ? setLink(b.dataset.owner,b.dataset.id,false)    // feature row: drop an item
-                            : setLink(b.dataset.id,b.dataset.owner,false);   // item row: drop a feature
+    const kind=b.dataset.kind;
+    if(kind==='rel') relLink(b.dataset.owner,b.dataset.id,false);
+    else if(kind==='vref') setLink(b.dataset.owner,b.dataset.id,false);      // feature row: drop an item
+    else setLink(b.dataset.id,b.dataset.owner,false);                        // item row: drop a feature
     markDirty(); render(); return;
   }
   if(act==='add'){
@@ -1602,7 +1636,7 @@ document.addEventListener('click',e=>{
     Object.assign(f,s.payload||{});
     f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);   // fresh ID — never collide
     f.status='editing';        // a card arrives with description, quote and rationale — already past 'not started'
-    ['judged_by','feature_refs'].forEach(k=>{ if(typeof f[k]==='string') f[k]=f[k].split(/[,\s|]+/).filter(Boolean); });
+    ['judged_by','feature_refs','related_refs'].forEach(k=>{ if(typeof f[k]==='string') f[k]=f[k].split(/[,\s|]+/).filter(Boolean); });
     arr.push(f);
     s.status='accepted'; s.accepted_as=f.id;
     markDirty(); render(); toast(`${f.id} added`);
@@ -1632,7 +1666,7 @@ document.addEventListener('click',e=>{
     const kind=(a.kind||'feature')==='item'?'item':'feature';
     const arr=kind==='item'?DATA.items:DATA.features;
     const fix={...(a.fix||{})}; delete fix.id;
-    ['judged_by','feature_refs'].forEach(k=>{ if(typeof fix[k]==='string') fix[k]=fix[k].split(/[,\s|]+/).filter(Boolean); });
+    ['judged_by','feature_refs','related_refs'].forEach(k=>{ if(typeof fix[k]==='string') fix[k]=fix[k].split(/[,\s|]+/).filter(Boolean); });
     if((a.finding||'')==='missing'){
       const f=TEMPLATE[kind](arr);
       Object.assign(f,fix);
@@ -1683,9 +1717,10 @@ document.addEventListener('change',e=>{
   if(f){ filterOf(f.dataset.filter)[f.dataset.key]=f.value; render(); return; }
   const s=e.target.closest('select[data-pick]'); if(!s||!s.value) return;
   if(isSnapshot()){ toast('스냅샷 파일입니다 — 수정할 수 없습니다'); render(); return; }
-  const owner=s.dataset.owner;
-  if(s.dataset.pick==='vref') setLink(owner,s.value,true);        // feature side: pick an item
-  else                        setLink(s.value,owner,true);        // item side: pick a feature
+  const owner=s.dataset.owner, pick=s.dataset.pick;
+  if(pick==='rel')       relLink(owner,s.value,true);             // feature side: pick a command feature
+  else if(pick==='vref') setLink(owner,s.value,true);             // feature side: pick an item
+  else                   setLink(s.value,owner,true);             // item side: pick a feature
   markDirty(); render();
 });
 

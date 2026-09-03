@@ -98,14 +98,15 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
 | key | |
 |---|---|
 | `meta` | IP name, the Input Source block — `uarch` (URL of the spec the plan was written against; the top bar links to it), `ref_model` (path to the reference model) and `csr` (path to the SFR/register spreadsheet) — owner, status, `phase` (the plan's own pre-Alpha/Alpha/Beta stage; per-item targets live on `items[].phase`), last_updated. Edited in the top bar. |
-| `features[]` | **what** must be verified — `category`, `name`, `description`, `priority`, `status`, `notes`. `F##` |
+| `features[]` | **what** must be verified — `category`, `name`, `description`, `priority`, `status`, `notes`, and `related_refs[]`, a one-way link to other features whose category is `command` (`REL_CAT` in the renderer; the row's "Related to" half). `F##` |
 | `items[]` | **verification items** — what must hold for a feature to be true, one judgeable claim each, with its `oracle` and the `phase` it is due in (pre-Alpha / Alpha / Beta). `VI###` |
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
 | `coverage.functional[]` `coverage.assertions[]` `coverage.code` | `CG##`, `SVA##`, targets + sign-off |
 | `suggestions[]` | agent inbox — proposals for rows that do not exist yet. **Not the plan.** `S###` |
 | `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. **Not the plan.** `A###` |
 
-Cross-references are ID strings: `testcases[].feature_refs[] → features[].id`,
+Cross-references are ID strings: `features[].related_refs[] → features[].id` (command-category only —
+lint warns when a link resolves to another category), `testcases[].feature_refs[] → features[].id`,
 `items[].feature_refs[] → features[].id`,
 `testcases[].coverage_refs[] → CG/SVA ids`, `testcases[].dependencies[] → testcases[].id`,
 `coverage.functional[].feature_refs[] → features[].id`. Lint checks all of them.

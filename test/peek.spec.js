@@ -75,7 +75,9 @@ test('the drawer never reaches the saved file', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await page.click('[data-act="peek"][data-id="VI001"]');
+  // the renderer's own source mentions the pane; what must not survive is a rendered one
   const saved = await page.evaluate(() => serializeDoc());
-  expect(saved).not.toContain('role="dialog"');     // the CSS stays; the open drawer does not
   expect(saved).toMatch(/<div id="app"><\/div>/);
+  const body = saved.slice(saved.indexOf('<div id="app">'));
+  expect(body).not.toContain('class="peek-pane"');
 });
