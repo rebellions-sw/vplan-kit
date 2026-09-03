@@ -240,6 +240,8 @@ select.cell.mini{background-position:calc(100% - 12px) 9px,calc(100% - 8px) 9px;
 .field{display:flex;flex-direction:column;gap:4px}
 .field > label{font-weight:600;font-size:11px;line-height:1.3;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
 .field .sub{font-size:11px;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0}
+/* the AI-authored mark is the one .sub that should catch the eye — it is a claim to check, not a hint */
+.field .sub.ai{color:var(--warn);font-weight:600}
 
 /* ---------- editable cells ---------- */
 .cell{border:1px solid transparent;border-radius:5px;padding:4px 6px;min-height:26px;background:var(--panel-2);
@@ -508,8 +510,12 @@ function sel(path,opts,{cls=''}={}){
   const extra = opts.includes(v)?'':`<option value="${esc(v)}" selected>${esc(v)}</option>`;
   return `<select class="cell ${cls}"${isSnapshot()?' disabled':''} data-path="${path}" data-kind="select">${extra}${o}</select>`;
 }
-function field(label,inner,sub){
-  return `<div class="field"><label>${esc(label)}${sub?` <span class="sub">${esc(sub)}</span>`:''}</label>${inner}</div>`;
+/* `description_ai` marks a description an agent wrote (vplan_fill_description). It is a claim about
+   who wrote the text, so it survives only as long as the text: the input handler drops the flag the
+   moment a human edits that description, and the badge disappears with it. */
+function aiMark(row){ return row&&row.description_ai ? 'AI가 채움 — 고치면 표시가 사라집니다' : ''; }
+function field(label,inner,sub,cls){
+  return `<div class="field"><label>${esc(label)}${sub?` <span class="sub${cls?' '+cls:''}">${esc(sub)}</span>`:''}</label>${inner}</div>`;
 }
 function statusBadge(v){
   const m={passing:'b-ok',coded:'b-acc',in_progress:'b-warn',failing:'b-err',blocked:'b-err',waived:'b-mut',planned:'b-mut',
@@ -802,7 +808,7 @@ VIEW.features=()=>{
           ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}</td>`;
       })()}</tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}))}</td></tr>
+      <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}),aiMark(f),'ai')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Notes',cell(`features.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`}).join('')}
   </tbody></table></div></div>
@@ -1196,7 +1202,7 @@ VIEW.items=()=>`
       <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
       <td colspan="3">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${field('Description',cell(`items.${i}.description`,{cls:'boxed',ph:'what must hold, and how it is judged'}))}</td></tr>
+      <td colspan="6">${field('Description',cell(`items.${i}.description`,{cls:'boxed',ph:'what must hold, and how it is judged'}),aiMark(it),'ai')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="6">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1616,6 +1622,10 @@ document.addEventListener('input',e=>{
   }
   if(isSnapshot()) return;                 // a snapshot is read-only: nothing writes into DATA
   const el=e.target.closest('[data-path]'); if(!el) return;
+  /* the AI mark is about authorship, so a human keystroke retires it — dropped before the write so
+     the row is clean whichever field the edit lands in */
+  const desc=(el.dataset.path||'').match(/^(features|items)\.(\d+)\.description$/);
+  if(desc){ const row=DATA[desc[1]][+desc[2]]; if(row&&row.description_ai) delete row.description_ai; }
   if(el.type==='checkbox'){ set(el.dataset.path,el.checked); markDirty(); return; }
   const path=el.dataset.path, kind=el.dataset.kind;
   let v = (el.tagName==='SELECT') ? el.value : el.textContent;

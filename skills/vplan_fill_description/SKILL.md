@@ -67,32 +67,40 @@ d = json.loads(s[i+len(tag):j])
    modest — say what the name implies must hold, never invent a signal name, register field, or numeric
    limit no source states. **List every unsourced row in the report.** Never write a description that
    only repeats the name, and never leave a placeholder like "TBD" — skip the row instead.
-7. **Write nothing else.** No new rows, no `suggestions[]` / `audits[]` cards, no `oracle`, `category`,
+7. **Mark every description you write** with `description_ai: true` on that row — the badge beside the
+   Description label is how a human tells your text from their own. Never set it on a row you did not
+   write, and never remove it: the page drops the flag itself the moment someone edits that
+   description. Rows you skip keep no flag at all.
+8. **Write nothing else.** No new rows, no `suggestions[]` / `audits[]` cards, no `oracle`, `category`,
    `phase`, `status`, `notes`, no id renumbering. If a row needs more than a description, that is
    `vplan_audit`'s job — mention it in the report.
-8. **Write and verify.** Re-serialize the data block (indent 2), read the file back, and assert:
+9. **Write and verify.** Re-serialize the data block (indent 2), read the file back, and assert:
    - it parses, and `features[]` / `items[]` / `testcases[]` / `suggestions[]` / `audits[]` lengths are
      unchanged;
    - every row you filled now has a non-empty description;
    - **every other field of every row is byte-identical to before** — diff the before/after JSON with
-     the filled descriptions removed, and abort rather than save if anything else moved.
+     the filled descriptions and their `description_ai` flags removed, and abort rather than save if
+     anything else moved.
 
 ```python
 # the check that matters: nothing but the empty descriptions moved
 def scrub(doc, filled):                      # filled = {('features', 3), ('items', 0), ...}
     import copy; c = copy.deepcopy(doc)
-    for arr, idx in filled: c[arr][idx]['description'] = ''
+    for arr, idx in filled:
+        c[arr][idx]['description'] = ''
+        c[arr][idx].pop('description_ai', None)
     return c
 assert scrub(after, filled) == before, 'refusing to save: something other than the descriptions changed'
 ```
 
-9. **Report**: how many descriptions were filled per table, which rows were skipped and why (no name,
+10. **Report**: how many descriptions were filled per table, which rows were skipped and why (no name,
    already described), which ones had no source backing them or no category, and the reminder to
    **reload the tab**.
 
 ## Rules that outlive this skill
 
 - An empty description is an invitation; a written one is the user's. Never overwrite, never "polish".
+- Everything you write is labelled as yours. An unmarked description is a human's, by definition.
 - This skill's licence to write rows is exactly one field wide. Everything else still goes through the
   suggestion / audit inbox.
 - No source, no specifics: a modest description beats a confident invention.
