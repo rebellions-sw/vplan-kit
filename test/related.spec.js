@@ -92,3 +92,17 @@ test('a new feature row starts with an empty related list', async ({ page }) => 
   const last = await page.evaluate(() => DATA.features[DATA.features.length - 1].related_refs);
   expect(last).toEqual([]);
 });
+
+test('chips read as names, with the id in the tooltip and a fallback when there is none', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await threeFeatures(page);
+  await page.selectOption('select[data-pick="rel"][data-owner="F01"]', 'F02');
+
+  const chip = page.locator('[data-act="peek"][data-id="F02"]');
+  await expect(chip).toHaveText('a command');                 // the name, not F02
+  await expect(chip).toHaveAttribute('title', /^F02/);         // the id is still one hover away
+
+  await page.evaluate(() => { DATA.features[1].name = '   '; render(); });
+  await expect(page.locator('[data-act="peek"][data-id="F02"]')).toHaveText('F02');   // never blank
+});

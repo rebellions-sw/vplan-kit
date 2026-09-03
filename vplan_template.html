@@ -132,7 +132,8 @@ select.cell.phase{min-width:128px}
 .halfrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:900px){.halfrow{grid-template-columns:1fr}}
 .reflink{display:inline-flex;align-items:center;gap:3px;padding:2px 4px 2px 7px;border-radius:999px;
-  background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap}
+  background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap;max-width:100%}
+.reflink > .peek{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reflink > .x{border:none;background:none;cursor:pointer;color:var(--accent);opacity:.55;font:700 12px/1 inherit;padding:0 2px}
 .reflink > .x:hover{opacity:1}
 .reflink > .peek{border:none;background:none;cursor:pointer;color:inherit;font:inherit;padding:0;text-decoration:underline;
@@ -521,14 +522,19 @@ function togChips(path,values,cur){
   return `<div class="togs">${values.map(v=>`<button class="tog${on.has(v)?' on':''}" data-act="tog"
     data-path="${path}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
 }
-/* The id half of a chip opens the peek drawer, the × still unlinks. A feature row lists the items
-   that verify it by id alone, and chasing one meant leaving the row to go read the other tab. */
+/* A chip shows the row's NAME, not its id: F13 says nothing at a glance. The id stays in the tooltip
+   (and is what is stored), and an unnamed or deleted row falls back to showing the id so the chip is
+   never blank. The name half opens the peek drawer; the × still unlinks. */
 function refChips(kind,ownerId,ids){
   if(!ids.length) return `<span class="badge b-mut">none</span>`;
   const peek=kind==='vref'?'item':'feature';
-  return ids.map(id=>`<span class="reflink"><button class="peek" data-act="peek" data-peek="${peek}"
-      data-id="${esc(id)}" title="${esc(id)} 내용 보기">${esc(id)}</button><button class="x" data-act="unlink" data-kind="${kind}"
-      data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button></span>`).join('');
+  return ids.map(id=>{
+    const row=(peek==='item'?DATA.items:DATA.features).find(r=>r.id===id);
+    const label=(row&&row.name&&row.name.trim())?row.name.trim():id;
+    return `<span class="reflink"><button class="peek" data-act="peek" data-peek="${peek}"
+      data-id="${esc(id)}" title="${esc(id)}${row?'':' — 플랜에 없음'} · 내용 보기">${esc(label)}</button><button class="x" data-act="unlink" data-kind="${kind}"
+      data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button></span>`;
+  }).join('');
 }
 function linkPicker(kind,ownerId,rows,label){
   if(!rows.length || isSnapshot()) return '';   // read-only snapshot: no way to add a link
