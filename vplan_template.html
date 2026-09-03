@@ -134,6 +134,7 @@ select.cell.phase{min-width:128px}
 .reflink{display:inline-flex;align-items:center;gap:3px;padding:2px 4px 2px 7px;border-radius:999px;
   background:var(--accent-soft);color:var(--accent);font:600 11px/1.5 var(--mono);white-space:nowrap;max-width:100%}
 .reflink > .peek{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reflink > .peek.flat{cursor:default;text-decoration:none}
 .reflink > .x{border:none;background:none;cursor:pointer;color:var(--accent);opacity:.55;font:700 12px/1 inherit;padding:0 2px}
 .reflink > .x:hover{opacity:1}
 .reflink > .peek{border:none;background:none;cursor:pointer;color:inherit;font:inherit;padding:0;text-decoration:underline;
@@ -522,20 +523,24 @@ function togChips(path,values,cur){
   return `<div class="togs">${values.map(v=>`<button class="tog${on.has(v)?' on':''}" data-act="tog"
     data-path="${path}" data-v="${esc(v)}">${esc(v)}</button>`).join('')}</div>`;
 }
-/* A chip shows the row's NAME, not its id: F13 says nothing at a glance. The id stays in the tooltip
-   (and is what is stored), and an unnamed or deleted row falls back to showing the id so the chip is
-   never blank. The name half opens the peek drawer; the × still unlinks.
-   The exception is an item's `Link to`: an item row is read against its feature ids, and the feature
-   names are long enough to swamp the row it sits in. */
+/* Two kinds of chip. `Verified by` / `Link to` are the verification wiring: they show the id, which is
+   what the rest of the plan cites, and clicking one opens the peek drawer on that row. `Related to` is
+   read, not chased — it shows the command's name and is plain text, since the name IS the information.
+   Both keep the × that unlinks; an unnamed or deleted row falls back to its id so no chip is blank. */
 function refChips(kind,ownerId,ids){
   if(!ids.length) return `<span class="badge b-mut">none</span>`;
   const peek=kind==='vref'?'item':'feature';
   return ids.map(id=>{
     const row=(peek==='item'?DATA.items:DATA.features).find(r=>r.id===id);
-    const label=(kind!=='fref'&&row&&row.name&&row.name.trim())?row.name.trim():id;
+    const gone=row?'':' — 플랜에 없음';
+    const x=`<button class="x" data-act="unlink" data-kind="${kind}"
+      data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button>`;
+    if(kind==='rel'){
+      const label=(row&&row.name&&row.name.trim())?row.name.trim():id;
+      return `<span class="reflink"><span class="peek flat" title="${esc(id)}${gone}">${esc(label)}</span>${x}</span>`;
+    }
     return `<span class="reflink"><button class="peek" data-act="peek" data-peek="${peek}"
-      data-id="${esc(id)}" title="${esc(id)}${row?'':' — 플랜에 없음'} · 내용 보기">${esc(label)}</button><button class="x" data-act="unlink" data-kind="${kind}"
-      data-owner="${esc(ownerId)}" data-id="${esc(id)}" title="unlink">×</button></span>`;
+      data-id="${esc(id)}" title="${esc(id)}${gone} · 내용 보기">${esc(id)}</button>${x}</span>`;
   }).join('');
 }
 function linkPicker(kind,ownerId,rows,label){
@@ -749,12 +754,15 @@ VIEW.features=()=>{
     <td>${sel(`features.${i}.status`,E.status)}</td>
     <td class="actions">${confirmCk('features',i)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('features',i,vi,vis_.length)}</div></td>
-      <td colspan="5"><div class="halfrow">
-        ${field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
-          ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`)}
-        ${field('Related to',`<div class="refcell">${refChips('rel',f.id,rel)}
-          ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&x.id!==f.id&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}
-      </div></td></tr>
+      <td colspan="5">${(()=>{
+        const verified=field('Verified by',`<div class="refcell">${refChips('vref',f.id,vis)}
+          ${linkPicker('vref',f.id,DATA.items.filter(it=>!vis.includes(it.id)),'+ VI')}</div>`);
+        // a command row is the thing others point at; giving it its own Related to invites F↔F loops
+        if(f.category===REL_CAT) return verified;
+        return `<div class="halfrow">${verified}
+          ${field('Related to',`<div class="refcell">${refChips('rel',f.id,rel)}
+            ${linkPicker('rel',f.id,DATA.features.filter(x=>x.category===REL_CAT&&!rel.includes(x.id)),'+ F')}</div>`,`category ${REL_CAT} only`)}</div>`;
+      })()}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`features.${i}.description`,{cls:'boxed',ph:'what must be verified, and what correct means'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>

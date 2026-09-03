@@ -16,7 +16,7 @@ async function threeFeatures(page) {
   });
 }
 
-test('the picker offers only command features, never the row itself', async ({ page }) => {
+test('the picker offers command features only, and command rows have no Related to at all', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await threeFeatures(page);
@@ -24,9 +24,11 @@ test('the picker offers only command features, never the row itself', async ({ p
   const opts = await page.locator('select[data-pick="rel"][data-owner="F01"] option').allTextContents();
   expect(opts.filter(o => o.startsWith('F')).map(o => o.split(' ')[0])).toEqual(['F02', 'F03']);
 
-  const own = await page.locator('select[data-pick="rel"][data-owner="F02"] option').allTextContents();
-  expect(own.join()).not.toContain('F02');       // not itself
-  expect(own.join()).not.toContain('F01');       // not a behavior feature
+  // F02/F03 are command rows: they are what others point at, so the half is not rendered for them
+  await expect(page.locator('select[data-pick="rel"][data-owner="F02"]')).toHaveCount(0);
+  await expect(page.locator('select[data-pick="rel"][data-owner="F03"]')).toHaveCount(0);
+  const rows = await page.locator('tr.subrow').filter({ hasText: 'Related to' }).count();
+  expect(rows).toBe(1);                                  // only the behavior row has one
 });
 
 test('picking one adds a chip, and the × removes it', async ({ page }) => {
@@ -38,10 +40,10 @@ test('picking one adds a chip, and the × removes it', async ({ page }) => {
   expect(await page.evaluate(() => DATA.features[0].related_refs)).toEqual(['F03']);
   expect(await page.evaluate(() => DATA.features[2].related_refs)).toEqual([]);   // one-way
 
-  // the chip's id opens the peek drawer; its × unlinks
-  await page.click('[data-act="peek"][data-id="F03"]');
-  await expect(page.locator('.peek-pane')).toContainText('another command');
-  await page.keyboard.press('Escape');
+  // a Related-to chip is read, not chased: no peek button, and clicking it opens nothing
+  await expect(page.locator('[data-act="peek"][data-id="F03"]')).toHaveCount(0);
+  await page.locator('.reflink .peek.flat').filter({ hasText: 'another command' }).click();
+  await expect(page.locator('.peek-pane')).toHaveCount(0);
 
   await page.click('[data-act="unlink"][data-kind="rel"][data-owner="F01"][data-id="F03"]');
   expect(await page.evaluate(() => DATA.features[0].related_refs)).toEqual([]);
@@ -93,18 +95,27 @@ test('a new feature row starts with an empty related list', async ({ page }) => 
   expect(last).toEqual([]);
 });
 
-test('chips read as names, with the id in the tooltip and a fallback when there is none', async ({ page }) => {
+test('a Related-to chip reads as the name, with the id in its tooltip', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await threeFeatures(page);
   await page.selectOption('select[data-pick="rel"][data-owner="F01"]', 'F02');
 
-  const chip = page.locator('[data-act="peek"][data-id="F02"]');
-  await expect(chip).toHaveText('a command');                 // the name, not F02
-  await expect(chip).toHaveAttribute('title', /^F02/);         // the id is still one hover away
+  const chip = page.locator('.reflink .peek.flat').first();
+  await expect(chip).toHaveText('a command');                  // the name, not F02
+  await expect(chip).toHaveAttribute('title', /^F02/);          // the id is still one hover away
 
   await page.evaluate(() => { DATA.features[1].name = '   '; render(); });
-  await expect(page.locator('[data-act="peek"][data-id="F02"]')).toHaveText('F02');   // never blank
+  await expect(page.locator('.reflink .peek.flat').first()).toHaveText('F02');   // never blank
+});
+
+test("Verified by and Link to chips are ids that open the drawer", async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  const vi = page.locator('[data-act="peek"][data-id="VI001"]');
+  await expect(vi).toHaveText('VI001');                        // the id, not 'first item'
+  await vi.click();
+  await expect(page.locator('.peek-pane')).toContainText('first item');
 });
 
 test("an item's Link to chips stay ids", async ({ page }) => {
