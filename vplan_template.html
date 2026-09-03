@@ -511,7 +511,7 @@ function sel(path,opts,{cls=''}={}){
   return `<select class="cell ${cls}"${isSnapshot()?' disabled':''} data-path="${path}" data-kind="select">${extra}${o}</select>`;
 }
 /* A description can hold both hands: what the user wrote, then `AI_MARK`, then what
-   vplan_fill_description added below it. The marker IS the label — no separate flag to go stale, and
+   vplan_feature_desc added below it. The marker IS the label — no separate flag to go stale, and
    deleting the AI half removes the badge with it, because the badge is just "does this contain the
    marker". Keep the string in one place; the skill writes exactly this. */
 const AI_MARK='=== AI ===';
