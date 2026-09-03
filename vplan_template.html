@@ -580,11 +580,15 @@ function rowsOf(arrPath){
     if(!['category','phase','status'].every(k=>!f[k]||r[k]===f[k])) return false;
     if(f.vref){                       // features, filtered by the item that verifies them
       const linked=DATA.items.filter(it=>(it.feature_refs||[]).includes(r.id)).map(it=>it.id);
-      return f.vref==='__none__' ? !linked.length : linked.includes(f.vref);
+      if(f.vref==='__none__' ? linked.length : !linked.includes(f.vref)) return false;
     }
     if(f.fref){                       // items, filtered by the feature they belong to
       const refs=r.feature_refs||[];
-      return f.fref==='__none__' ? !refs.length : refs.includes(f.fref);
+      if(f.fref==='__none__' ? refs.length : !refs.includes(f.fref)) return false;
+    }
+    if(f.rel){                        // features, filtered by the command they are related to
+      const refs=r.related_refs||[];
+      if(f.rel==='__none__' ? refs.length : !refs.includes(f.rel)) return false;
     }
     return true;
   });
@@ -737,7 +741,9 @@ VIEW.features=()=>{
 
   <div class="panel stick"><div class="panel-head"><h2>Feature list</h2>${addBtn('features','feature','feature')}${filterNote('features')}
     <div class="spacer"></div>
-    ${headFilter('verified by','features','vref',[['__none__','— none —']].concat(DATA.items.map(it=>[it.id,it.id])))}</div>
+    ${headFilter('verified by','features','vref',[['__none__','— none —']].concat(DATA.items.map(it=>[it.id,it.id])))}
+    ${headFilter('related to','features','rel',[['__none__','— none —']].concat(
+      DATA.features.filter(x=>x.category===REL_CAT).map(x=>[x.id,(x.name&&x.name.trim())||x.id])))}</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th style="width:26px"></th>${sortTh('ID','features','id','width:52px')}${filterTh(catHead(),'features','category','category','width:170px')}<th>Feature</th>${filterTh('Phase','features','phase','phase','width:150px')}
     ${filterTh('Definition','features','status','status','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
@@ -1210,7 +1216,7 @@ function renumberIds(){
   (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target); if(x.accepted_as) x.accepted_as=m(x.accepted_as);
     if(x.fix&&x.fix.feature_refs) x.fix.feature_refs=remap(x.fix.feature_refs); });
   Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
-    ['vref','fref'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
+    ['vref','fref','rel'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
   });
   const n=Object.keys(map).length;
   markDirty(); render();

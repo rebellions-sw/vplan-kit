@@ -127,3 +127,61 @@ test("an item's Link to chips stay ids", async ({ page }) => {
   await expect(chip).toHaveText('F01');
   await expect(chip).toHaveAttribute('title', /^F01/);
 });
+
+test('the Feature list filters by related-to, the way it filters by verified-by', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await threeFeatures(page);
+  await page.evaluate(() => {
+    DATA.features.push({ id:'F04', category:'behavior', name:'another behavior', description:'',
+      related_refs:['F03'], phase:'Alpha', status:'editing', reviewed:false, notes:'' });
+    DATA.features[0].related_refs = ['F02'];
+    render();
+  });
+
+  const shown = async () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
+  const sel = 'select[data-filter="features"][data-key="rel"]';
+
+  // the options are the command features, listed by name
+  expect(await page.locator(`${sel} option`).allTextContents()).toEqual(['all', '— none —', 'a command', 'another command']);
+
+  await page.selectOption(sel, 'F02');
+  expect(await shown()).toEqual(['F01']);
+
+  await page.selectOption(sel, 'F03');
+  expect(await shown()).toEqual(['F04']);
+
+  await page.selectOption(sel, '__none__');
+  expect(await shown()).toEqual(['F02', 'F03']);      // the command rows relate to nothing themselves
+
+  await page.selectOption(sel, '');
+  expect(await shown()).toEqual(['F01', 'F02', 'F03', 'F04']);
+});
+
+test('the related-to filter composes with the others rather than replacing them', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await threeFeatures(page);
+  await page.evaluate(() => {
+    DATA.features.push({ id:'F04', category:'parameter', name:'a parameter', description:'',
+      related_refs:['F02'], phase:'Alpha', status:'editing', reviewed:false, notes:'' });
+    DATA.features[0].related_refs = ['F02'];
+    render();
+  });
+
+  await page.selectOption('select[data-filter="features"][data-key="rel"]', 'F02');
+  await page.selectOption('select[data-filter="features"][data-key="category"]', 'behavior');
+  expect(await page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()))).toEqual(['F01']);
+});
+
+test('Refresh keeps an active related-to filter pointing at the same row', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await threeFeatures(page);
+  await page.evaluate(() => { DATA.features[1].id = 'F08'; DATA.features[0].related_refs = ['F08']; render(); });
+  await page.selectOption('select[data-filter="features"][data-key="rel"]', 'F08');
+
+  await page.click('[data-act="renumber"]');
+  expect(await page.evaluate(() => FILTER.features.rel)).toBe('F02');
+  expect(await page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()))).toEqual(['F01']);
+});
