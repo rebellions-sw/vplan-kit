@@ -57,10 +57,18 @@ the field name is the information. Three or four lines total:
 
 ```
 === AI ===
-- 파생: INV ALL / INV SID / INV CAT — `cmd`로 구분, 대상 범위는 `route[1:0]`
-- INV REQ (SOM→ATU→IP): `cmd`, `id`, `cat`, `route[1:0]`  /  unused: `vpn`, `ppn`, `attr`
-- INV CPL (IP→ATU→SOM): `cmd`, `id`(echo), `cat`, `cnote[31]`, `route[34]`, `urgent`
+파생 ▸ INV ALL · INV SID · INV CAT      (cmd로 구분, 범위는 route[1:0])
+
+INV REQ   SOM → ATU → IP  ·  cmd · id · cat · route[1:0]
+INV CPL   IP → ATU → SOM  ·  cmd · id(echo) · cat · cnote[31] · route[34] · urgent
+drop err  ATU → IP  ·  attr[15] · attr[14:13] · attr[12:11] · attr[10:9] · cat
+unused  ·  vpn · ppn · attr[3:0]
 ```
+
+A description that contains the marker is rendered in a fixed-pitch font, so **lay the lines out as
+columns**: a short direction label, then ` · ` before the field list and between fields. No backticks
+(nothing renders them), no bullet dashes on the field lines. Keep the `unused` line last, and put a
+`파생 ▸ …` line first when the row has derived commands, separated by a blank line.
 
 Group by direction (IP→ATU request, ATU→SOM request, response), say plainly when there is no response,
 and list **derived commands together in the parent row** — `Invalidation` covers INV ALL / SID / CAT,

@@ -178,6 +178,7 @@ tr.subrow > td > .field{margin-right:12px}
 select.cell.mini.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 tr.subrow .field > label{font-size:9.5px;letter-spacing:.06em}
 .cell.boxed{border-color:var(--line-2);min-height:32px;padding:6px 8px;line-height:1.5}
+.cell.boxed.aimono{font-family:var(--mono);font-size:12px;line-height:1.6}
 .cell.boxed:hover{border-color:var(--line)}
 tr.subrow .noteline{display:flex;align-items:center;gap:8px}
 /* the notes-row buttons line up with the Verified by column's left edge, not the row's right end
@@ -522,8 +523,10 @@ const AI_BADGE=AI_MARK;
    user had already taken over. */
 function descField(label,path,row,ph){
   const on=String((row&&row.description)||'').includes(AI_MARK);
+  /* an AI half is mostly field lists, which only line up in a fixed-pitch font — the whole cell
+     switches so the user's half above the marker keeps the same measure */
   return `<div class="field"><label>${esc(label)}
-      <span class="sub ai" data-aibadge="${path}">${on?esc(AI_BADGE):''}</span></label>${cell(path,{cls:'boxed',ph})}</div>`;
+      <span class="sub ai" data-aibadge="${path}">${on?esc(AI_BADGE):''}</span></label>${cell(path,{cls:'boxed'+(on?' aimono':''),ph})}</div>`;
 }
 function field(label,inner,sub,cls){
   return `<div class="field"><label>${esc(label)}${sub?` <span class="sub${cls?' '+cls:''}">${esc(sub)}</span>`:''}</label>${inner}</div>`;
