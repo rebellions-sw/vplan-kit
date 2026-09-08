@@ -50,7 +50,7 @@ test('the audit panel is there before any audit has run, like the suggestion inb
   }
 });
 
-test('accepting an insufficient finding edits the row in place and keeps its id', async ({ page }) => {
+test('accepting an insufficient finding edits the row in place and consumes the card', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await seedAudits(page);
@@ -59,13 +59,12 @@ test('accepting an insufficient finding edits the row in place and keeps its id'
   const st = await page.evaluate(() => ({
     row: DATA.features.find(f => f.id === 'F01'),
     rows: DATA.features.length,
-    card: DATA.audits[0],
+    aids: DATA.audits.map(a => a.aid),
   }));
   expect(st.rows).toBe(2);                                  // edited, not appended
   expect(st.row.description).toBe('tightened description');
   expect(st.row.name).toBe('first feature');                // untouched fields survive
-  expect(st.card.status).toBe('accepted');
-  expect(st.card.accepted_as).toBe('F01');
+  expect(st.aids).toEqual(['A002', 'A003', 'A004']);        // the card is gone, applied or not kept
 });
 
 test('accepting a missing finding adds a row with a fresh id, never the proposed one', async ({ page }) => {
@@ -78,13 +77,13 @@ test('accepting a missing finding adds a row with a fresh id, never the proposed
   const st = await page.evaluate(() => ({
     rows: DATA.features.length,
     last: DATA.features[DATA.features.length - 1],
-    card: DATA.audits[2],
+    aids: DATA.audits.map(a => a.aid),
   }));
   expect(st.rows).toBe(3);
   expect(st.last.id).toBe('F03');
   expect(st.last.name).toBe('uncovered behavior');
   expect(st.last.status).toBe('editing');
-  expect(st.card.accepted_as).toBe('F03');
+  expect(st.aids).toEqual(['A001', 'A002', 'A004']);
 });
 
 test('a card whose target row is gone refuses to apply', async ({ page }) => {
@@ -98,7 +97,7 @@ test('a card whose target row is gone refuses to apply', async ({ page }) => {
   expect(await page.evaluate(() => DATA.audits[0].status)).toBe('pending');
 });
 
-test('declining throws the card away, and reopening keeps what was already applied', async ({ page }) => {
+test('declining throws the card away, and neither outcome leaves a record', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await seedAudits(page);
@@ -109,13 +108,18 @@ test('declining throws the card away, and reopening keeps what was already appli
   expect(await page.evaluate(() => DATA.audits.some(a => a.status === 'rejected'))).toBe(false);
   expect(await page.evaluate(() => DATA.features.find(f => f.id === 'F02').name)).toBe('second feature');
 
+  // accepting the next one also consumes it — audits[] only ever holds open findings
   await page.click('[data-act="audit-accept"][data-i="0"]');
-  await page.click('[data-act="sug-group"][data-g="audit:feature:accepted"]');   // accepted cards fold away
-  await page.click('[data-act="audit-reopen"][data-i="0"]');
-  const st = await page.evaluate(() => ({ card: DATA.audits[0], row: DATA.features.find(f => f.id === 'F01') }));
-  expect(st.card.status).toBe('pending');
-  expect(st.card.accepted_as).toBeUndefined();
-  expect(st.row.description).toBe('tightened description');   // the edit is the user's now
+  const st = await page.evaluate(() => ({
+    aids: DATA.audits.map(a => a.aid),
+    states: DATA.audits.map(a => a.status),
+    row: DATA.features.find(f => f.id === 'F01'),
+  }));
+  expect(st.aids).toEqual(['A003', 'A004']);
+  expect(st.states.every(x => x === 'pending')).toBe(true);
+  expect(st.row.description).toBe('tightened description');   // the edit stays; the card does not
+  await expect(page.locator('[data-act="audit-reopen"]')).toHaveCount(0);
+  await expect(page.locator('.panel-head', { hasText: 'Audit from AI' })).not.toContainText('accepted');
 });
 
 test('lint reports pending findings and a card pointing at a row that is gone', async ({ page }) => {
@@ -153,7 +157,9 @@ test('only Accept and Decline are offered — no reject labels, no reject note',
   await expect(card.locator('[data-act="audit-decline"]')).toHaveCount(1);
   await expect(card.locator('.btn.sm')).toHaveCount(2);
   await expect(page.locator('[data-act="audit-reject"]')).toHaveCount(0);
-  await expect(page.locator('.panel-head', { hasText: 'Audit from AI' })).not.toContainText('rejected');
+  const head = page.locator('.panel-head', { hasText: 'Audit from AI' });
+  await expect(head).not.toContainText('rejected');
+  await expect(head).not.toContainText('accepted');
 });
 
 test('a snapshot shows audit findings but cannot act on them', async ({ page }) => {

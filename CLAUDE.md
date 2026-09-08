@@ -108,7 +108,7 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
 | `coverage.functional[]` `coverage.assertions[]` `coverage.code` | `CG##`, `SVA##`, targets + sign-off |
 | `suggestions[]` | agent inbox — proposals for rows that do not exist yet. **Not the plan.** `S###` |
-| `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. Two outcomes only: **Accept** applies the fix and keeps the card, **Decline** deletes it (no `reject_kind`, no record). **Not the plan.** `A###` |
+| `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. Both outcomes consume the card: **Accept** applies the fix and deletes it, **Decline** deletes it unapplied — so this array only ever holds open findings, with no accepted/rejected state, `accepted_as` or `reject_kind`. **Not the plan.** `A###` |
 
 Cross-references are ID strings: `features[].related_refs[] → features[].id` (command-category only —
 lint warns when a link resolves to another category), `testcases[].feature_refs[] → features[].id`,
@@ -130,11 +130,12 @@ strength of a card.** The Accept button in the UI is the only path from a card t
 proposed id (`F##` for `kind: "feature"`, `VI###` for `kind: "item"`), so a suggestion can never collide
 with or overwrite an existing row.
 
-Accepting an audit card is the one place a card EDITS instead of adds: `fix` is merged key-by-key into
+Audit cards differ from suggestions in two ways: they are consumed by either button (nothing is kept
+on file — the applied edit lives in the row, and a decline leaves nothing), and accepting one EDITS
+instead of adds: `fix` is merged key-by-key into
 the row named by `target` (`id` stripped, so a card can never rename its target), except for
-`finding: "missing"`, which mints a fresh row exactly like a suggestion. Reopening an accepted audit
-un-decides the card but leaves the edit — the pre-edit values are not kept anywhere, so the row is the
-user's from then on. Renumbering (`Refresh`) carries `target` and `fix.feature_refs` with it.
+`finding: "missing"`, which mints a fresh row exactly like a suggestion. Renumbering (`Refresh`)
+carries `target` and `fix.feature_refs` with it.
 
 Accepted and rejected cards are kept for good — they fold into `Accepted` / `Rejected` sections under the
 pending list rather than disappearing. Rejections carry a `reject_kind` — `duplicated` / `hallucinated` / `waived` (see `$enums`) — plus an

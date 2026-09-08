@@ -199,8 +199,7 @@ tr.subrow .noteline > .cell{flex:1}
 #app.snap [data-act="add"],#app.snap [data-act="del"],#app.snap [data-act="dup"],
 #app.snap [data-act="renumber"],#app.snap [data-act="sug-accept"],#app.snap [data-act="sug-reject"],
 #app.snap [data-act="sug-reopen"],
-#app.snap [data-act="audit-accept"],#app.snap [data-act="audit-decline"],
-#app.snap [data-act="audit-reopen"]{display:none!important}
+#app.snap [data-act="audit-accept"],#app.snap [data-act="audit-decline"]{display:none!important}
 tr.row.dragging{opacity:.4}
 tr.row.drop-before > td{box-shadow:inset 0 2px 0 0 var(--accent)}
 tr.row.drop-after  > td{box-shadow:inset 0 -2px 0 0 var(--accent)}
@@ -984,9 +983,8 @@ const FIX_LBL={name:'Name',description:'Description',category:'Category',phase:'
   status:'Definition',notes:'Notes',oracle:'Oracle',stimulus:'Stimulus',judged_by:'Judged by',
   feature_refs:'Link to',implemented:'Implemented'};
 function auditCard(a,all,kind){
-  const i=all.indexOf(a), p=`audits.${i}`, done=a.status!=='pending';
+  const i=all.indexOf(a), p=`audits.${i}`;
   const cb={high:'b-ok',med:'b-warn',low:'b-mut'}[a.confidence]||'b-mut';
-  const sb={pending:'b-warn',accepted:'b-ok',rejected:'b-mut'}[a.status]||'b-mut';
   const src=a.source||{}, fnd=a.finding||'insufficient', adds=fnd==='missing';
   const row=adds?null:auditRow(a), lost=!adds&&!row, fix=a.fix||{};
   const editor=k=>{
@@ -1007,19 +1005,16 @@ function auditCard(a,all,kind){
           ${adds?'':`<div class="afix-was"><b>now</b><span>${was(k)?esc(was(k)):'<span class="hint">— empty —</span>'}</span></div>`}
           ${field(adds?(FIX_LBL[k]||k):`${FIX_LBL[k]||k} → proposed`,editor(k))}
         </div>`).join('');
-  return `<div class="sug${done?' done':''}">
+  return `<div class="sug">
       <div class="sug-head">
         <span class="sid">${esc(a.aid)}</span>
-        <span class="badge ${sb}">${esc(a.status)}</span>
         <span class="badge ${FINDING_BADGE[fnd]||'b-warn'}" title="${esc(FINDING_WHY[fnd]||'')}">${esc(fnd)}</span>
         ${adds?'':`<span class="badge ${lost?'b-err':'b-acc'}" title="${lost?'this row is gone — the card cannot be applied':'the row this card judges'}">${esc(a.target||'no target')}${lost?' — missing':''}</span>`}
         <span class="badge ${cb}">confidence ${esc(a.confidence||'?')}</span>
         <span class="hint">${esc(a.created||'')}</span>
         <div class="spacer"></div>
-        ${done
-          ? `<button class="btn sm" data-act="audit-reopen" data-i="${i}">Reopen</button>`
-          : `<button class="btn sm primary" data-act="audit-accept" data-i="${i}">${adds?`Accept → add ${kind==='item'?'item':'feature'}`:`Accept → fix ${esc(a.target||'')}`}</button>
-             <button class="btn sm" data-act="audit-decline" data-i="${i}" title="이 카드를 버립니다 (기록 남지 않음)">Decline</button>`}
+        <button class="btn sm primary" data-act="audit-accept" data-i="${i}">${adds?`Accept → add ${kind==='item'?'item':'feature'}`:`Accept → fix ${esc(a.target||'')}`}</button>
+        <button class="btn sm" data-act="audit-decline" data-i="${i}" title="이 카드를 버립니다 (기록 남지 않음)">Decline</button>
       </div>
       <div class="sug-body">
         <div class="evi">
@@ -1032,38 +1027,25 @@ function auditCard(a,all,kind){
         </div>
         <div class="why"><b>why</b>${esc(a.rationale||'')}</div>
         ${fixFields||`<div class="why"><b>note</b>no field change proposed — read the finding and decide by hand</div>`}
-        ${a.status==='accepted'&&a.accepted_as?`<div class="why"><b>applied to</b><span class="badge b-acc">${esc(a.accepted_as)}</span></div>`:''}
       </div></div>`;
 }
 function auditPanel(kind){
   const all=DATA.audits||[];
   const mine=all.filter(a=>(a.kind||'feature')===kind);
-  const g={pending:[],accepted:[],rejected:[]};
-  mine.forEach(a=>(g[a.status]||g.pending).push(a));
   const what=kind==='item'?'verification item':'feature';
-  const fold=(name,label)=>{
-    const rows=g[name]; if(!rows.length) return '';
-    const key=`audit:${kind}:${name}`, open=SUGOPEN.has(key);
-    return `<div class="sug-fold" data-act="sug-group" data-g="${key}">
-        <span class="caret">${open?'▾':'▸'}</span><b>${label}</b>
-        <span class="badge b-mut">${rows.length}</span>
-        <span class="hint">${open?'click to fold':'kept in the file — click to open'}</span>
-      </div>${open?rows.map(a=>auditCard(a,all,kind)).join(''):''}`;
-  };
-  const tally=(E.finding||[]).filter(f=>g.pending.some(a=>a.finding===f))
-    .map(f=>`<span class="badge ${FINDING_BADGE[f]||'b-warn'}">${g.pending.filter(a=>a.finding===f).length} ${esc(f)}</span>`).join('');
+  const tally=(E.finding||[]).filter(f=>mine.some(a=>a.finding===f))
+    .map(f=>`<span class="badge ${FINDING_BADGE[f]||'b-warn'}">${mine.filter(a=>a.finding===f).length} ${esc(f)}</span>`).join('');
   return `
-  ${g.accepted.length?`<div class="foldbox">${fold('accepted','Accepted — already applied')}</div>`:''}
   <p class="note">Findings against the Input Sources — where the plan's own ${what}s fall short, not what
-     it never had. <b>Accept</b> applies the proposed change to the row the card names; <b>Decline</b>
-     throws the card away for good. Nothing changes until you press one.</p>
+     it never had. <b>Accept</b> applies the proposed change to the row the card names, <b>Decline</b>
+     drops it — either way the card is gone afterwards, so the panel only ever holds what is still
+     undecided.</p>
   <div class="panel"><div class="panel-head"><h2>Audit from AI</h2>
     <div class="chips">
-      <span class="badge ${g.pending.length?'b-warn':'b-mut'}">${g.pending.length} pending</span>${tally}
-      <span class="badge b-ok">${g.accepted.length} accepted</span>
+      <span class="badge ${mine.length?'b-warn':'b-mut'}">${mine.length} pending</span>${tally}
     </div></div>
   <div class="panel-body">
-  ${g.pending.length?g.pending.map(a=>auditCard(a,all,kind)).join('')
+  ${mine.length?mine.map(a=>auditCard(a,all,kind)).join('')
     :`<div class="lint-item"><span class="badge b-ok">OK</span><span>No pending findings.</span></div>`}
   </div></div>`;
 }
@@ -1260,7 +1242,7 @@ function renumberIds(){
   DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
   DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
-  (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target); if(x.accepted_as) x.accepted_as=m(x.accepted_as);
+  (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target);
     if(x.fix&&x.fix.feature_refs) x.fix.feature_refs=remap(x.fix.feature_refs); });
   Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
     ['vref','fref','rel'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
@@ -1652,7 +1634,7 @@ document.addEventListener('click',e=>{
   const act=b.dataset.act;
 
   // a snapshot is read-only: viewing acts (fold, filter, sort, lint, export) stay, mutations do not
-  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-decline','audit-reopen','move','tog','unlink'].includes(act)){
+  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-decline','move','tog','unlink'].includes(act)){
     toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return;
   }
 
@@ -1746,7 +1728,8 @@ document.addEventListener('click',e=>{
      (fresh id, never the proposed one), the other two EDIT the row the card names. Only the keys in
      `fix` are written, and `id` can never be one of them — a card must not rename its own target. */
   if(act==='audit-accept'){
-    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
+    const arr0=DATA.audits||[], a=arr0[+b.dataset.i]; if(!a) return;
+    const drop=x=>{ const k=arr0.indexOf(x); if(k>=0) arr0.splice(k,1); };
     const kind=(a.kind||'feature')==='item'?'item':'feature';
     const arr=kind==='item'?DATA.items:DATA.features;
     const fix={...(a.fix||{})}; delete fix.id;
@@ -1757,17 +1740,19 @@ document.addEventListener('click',e=>{
       f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);
       f.status='editing';
       arr.push(f);
-      a.status='accepted'; a.accepted_as=f.id;
+      drop(a);
       markDirty(); render(); toast(`${f.id} added`);
       return;
     }
     const row=arr.find(r=>r.id===a.target);
     if(!row){ toast(`${a.target||'대상 없음'} 을(를) 찾을 수 없습니다 — 적용하지 않았습니다`); return; }
     Object.assign(row,fix);
-    a.status='accepted'; a.accepted_as=row.id;
+    drop(a);
     markDirty(); render(); toast(`${row.id} updated`);
     return;
   }
+  /* Both outcomes remove the card: the plan records what was applied (the row itself), not who
+     proposed it, and a decline leaves nothing at all. audits[] therefore holds only open findings. */
   /* Decline DISCARDS the card — no status, no reason, nothing kept. The cost is that the next
      vplan_audit run has no record that the finding was turned down, so it can come back; that is the
      trade this asks for. Accepted cards still stay on file. */
@@ -1775,16 +1760,6 @@ document.addEventListener('click',e=>{
     const arr=DATA.audits||[], i=+b.dataset.i, a=arr[i]; if(!a) return;
     arr.splice(i,1);
     markDirty(); render(); toast(`${a.aid} 버림`);
-    return;
-  }
-  /* Reopen only un-decides the card. What Accept already wrote into the plan stays: undoing an edit
-     would need the pre-edit values, which the card does not keep — the row is the user's now. */
-  if(act==='audit-reopen'){
-    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
-    const kept=a.accepted_as;
-    a.status='pending'; delete a.accepted_as;
-    markDirty(); render();
-    if(kept) toast(`${a.aid} reopened — ${kept} keeps what was applied`);
     return;
   }
   if(act==='save'){ saveHtml(); return; }

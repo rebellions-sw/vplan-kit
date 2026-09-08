@@ -27,7 +27,7 @@ test('Save HTML round-trips: the saved file reloads with identical data and no e
   expect(await data(page2)).toEqual(expected);
   expect(errors).toEqual([]);
   // the saved file must be a clean shell — no rendered DOM baked into it
-  expect(html).not.toContain('class="sug"');
+  expect(html).toMatch(/<div id="app"><\/div>/);
   expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
   await page2.close();
 });

@@ -132,7 +132,7 @@ test('the saved bytes are the serialized document, not the rendered page', async
   const saved = await page.evaluate(() => window.__fetches[0].body);
   expect(saved.startsWith('<!DOCTYPE html>')).toBe(true);
   expect(saved).toContain('"ip_name": "SEED"');
-  expect(saved).not.toContain('class="sug"');     // no rendered DOM baked in
+  expect(saved).toMatch(/<div id="app"><\/div>/);   // no rendered DOM baked in
 });
 
 test('when the helper is unreachable, Save falls back to a download — still no picker', async ({ page }) => {
