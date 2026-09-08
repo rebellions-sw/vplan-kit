@@ -199,7 +199,7 @@ tr.subrow .noteline > .cell{flex:1}
 #app.snap [data-act="add"],#app.snap [data-act="del"],#app.snap [data-act="dup"],
 #app.snap [data-act="renumber"],#app.snap [data-act="sug-accept"],#app.snap [data-act="sug-reject"],
 #app.snap [data-act="sug-reopen"],
-#app.snap [data-act="audit-accept"],#app.snap [data-act="audit-reject"],
+#app.snap [data-act="audit-accept"],#app.snap [data-act="audit-decline"],
 #app.snap [data-act="audit-reopen"]{display:none!important}
 tr.row.dragging{opacity:.4}
 tr.row.drop-before > td{box-shadow:inset 0 2px 0 0 var(--accent)}
@@ -1013,14 +1013,13 @@ function auditCard(a,all,kind){
         <span class="badge ${sb}">${esc(a.status)}</span>
         <span class="badge ${FINDING_BADGE[fnd]||'b-warn'}" title="${esc(FINDING_WHY[fnd]||'')}">${esc(fnd)}</span>
         ${adds?'':`<span class="badge ${lost?'b-err':'b-acc'}" title="${lost?'this row is gone — the card cannot be applied':'the row this card judges'}">${esc(a.target||'no target')}${lost?' — missing':''}</span>`}
-        ${a.status==='rejected'&&a.reject_kind?`<span class="badge b-err" title="${esc(REJECT_WHY[a.reject_kind]||'')}">${esc(a.reject_kind)}</span>`:''}
         <span class="badge ${cb}">confidence ${esc(a.confidence||'?')}</span>
         <span class="hint">${esc(a.created||'')}</span>
         <div class="spacer"></div>
         ${done
           ? `<button class="btn sm" data-act="audit-reopen" data-i="${i}">Reopen</button>`
           : `<button class="btn sm primary" data-act="audit-accept" data-i="${i}">${adds?`Accept → add ${kind==='item'?'item':'feature'}`:`Accept → fix ${esc(a.target||'')}`}</button>
-             ${(E.reject_kind||[]).map(k=>`<button class="btn sm" data-act="audit-reject" data-i="${i}" data-k="${k}" title="${esc(REJECT_WHY[k]||'')}">${esc(k[0].toUpperCase()+k.slice(1))}</button>`).join('')}`}
+             <button class="btn sm" data-act="audit-decline" data-i="${i}" title="이 카드를 버립니다 (기록 남지 않음)">Decline</button>`}
       </div>
       <div class="sug-body">
         <div class="evi">
@@ -1033,7 +1032,6 @@ function auditCard(a,all,kind){
         </div>
         <div class="why"><b>why</b>${esc(a.rationale||'')}</div>
         ${fixFields||`<div class="why"><b>note</b>no field change proposed — read the finding and decide by hand</div>`}
-        ${a.status==='rejected'?`<div class="sug-wide">${field('Reject note (optional)',cell(`${p}.reject_reason`,{ph:'e.g. covered by VI004 / waived for r1p2'}),'Claude reads this next run')}</div>`:''}
         ${a.status==='accepted'&&a.accepted_as?`<div class="why"><b>applied to</b><span class="badge b-acc">${esc(a.accepted_as)}</span></div>`:''}
       </div></div>`;
 }
@@ -1055,15 +1053,14 @@ function auditPanel(kind){
   const tally=(E.finding||[]).filter(f=>g.pending.some(a=>a.finding===f))
     .map(f=>`<span class="badge ${FINDING_BADGE[f]||'b-warn'}">${g.pending.filter(a=>a.finding===f).length} ${esc(f)}</span>`).join('');
   return `
-  ${g.rejected.length||g.accepted.length?`<div class="foldbox">${fold('rejected','Rejected — findings not acted on')}${fold('accepted','Accepted — already applied')}</div>`:''}
+  ${g.accepted.length?`<div class="foldbox">${fold('accepted','Accepted — already applied')}</div>`:''}
   <p class="note">Findings against the Input Sources — where the plan's own ${what}s fall short, not what
-     it never had. <b>Accept</b> applies the proposed change to the row the card names; nothing changes
-     until you do.</p>
+     it never had. <b>Accept</b> applies the proposed change to the row the card names; <b>Decline</b>
+     throws the card away for good. Nothing changes until you press one.</p>
   <div class="panel"><div class="panel-head"><h2>Audit from AI</h2>
     <div class="chips">
       <span class="badge ${g.pending.length?'b-warn':'b-mut'}">${g.pending.length} pending</span>${tally}
       <span class="badge b-ok">${g.accepted.length} accepted</span>
-      <span class="badge b-mut">${g.rejected.length} rejected</span>
     </div></div>
   <div class="panel-body">
   ${g.pending.length?g.pending.map(a=>auditCard(a,all,kind)).join('')
@@ -1380,7 +1377,6 @@ function lint(){
       if(!(x.source&&x.source.quote)) audNoQ.ids.push(x.aid);
       if(x.finding!=='missing'&&!rowIds[(x.kind||'feature')==='item'?'item':'feature'].has(x.target)) audNoTgt.ids.push(x.aid);
     }
-    if(x.status==='rejected'&&!x.reject_kind) sugNoLbl.ids.push(x.aid);
   });
 
   // agent names that differ by a keystroke are typos; rare ones are not
@@ -1656,7 +1652,7 @@ document.addEventListener('click',e=>{
   const act=b.dataset.act;
 
   // a snapshot is read-only: viewing acts (fold, filter, sort, lint, export) stay, mutations do not
-  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-reject','audit-reopen','move','tog','unlink'].includes(act)){
+  if(isSnapshot() && ['add','del','dup','renumber','save','save-as','sug-accept','sug-reject','sug-reopen','audit-accept','audit-decline','audit-reopen','move','tog','unlink'].includes(act)){
     toast('스냅샷 파일입니다 — 수정할 수 없습니다'); return;
   }
 
@@ -1772,12 +1768,13 @@ document.addEventListener('click',e=>{
     markDirty(); render(); toast(`${row.id} updated`);
     return;
   }
-  if(act==='audit-reject'){
-    const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
-    const k=b.dataset.k||'waived';
-    a.status='rejected'; a.reject_kind=k;
-    if(a.reject_reason==null) a.reject_reason='';
-    markDirty(); render(); toast(`${a.aid} rejected — ${k}. Add a note on the card if you want one.`);
+  /* Decline DISCARDS the card — no status, no reason, nothing kept. The cost is that the next
+     vplan_audit run has no record that the finding was turned down, so it can come back; that is the
+     trade this asks for. Accepted cards still stay on file. */
+  if(act==='audit-decline'){
+    const arr=DATA.audits||[], i=+b.dataset.i, a=arr[i]; if(!a) return;
+    arr.splice(i,1);
+    markDirty(); render(); toast(`${a.aid} 버림`);
     return;
   }
   /* Reopen only un-decides the card. What Accept already wrote into the plan stays: undoing an edit
@@ -1785,7 +1782,7 @@ document.addEventListener('click',e=>{
   if(act==='audit-reopen'){
     const a=(DATA.audits||[])[+b.dataset.i]; if(!a) return;
     const kept=a.accepted_as;
-    a.status='pending'; delete a.accepted_as; delete a.reject_kind;
+    a.status='pending'; delete a.accepted_as;
     markDirty(); render();
     if(kept) toast(`${a.aid} reopened — ${kept} keeps what was applied`);
     return;

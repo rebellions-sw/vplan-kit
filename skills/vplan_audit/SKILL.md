@@ -55,9 +55,11 @@ d = json.loads(s[i+len(tag):j])
      `oracle`; a feature needs a description that says what correct means. (no → `insufficient`)
    - For a feature: is any item actually verifying it? (no → `missing` item card)
 6. **Respect what was already decided.** Read `audits[]` **and** `suggestions[]` before writing: never
-   re-file a finding that is pending, accepted, or rejected. A rejection is feedback addressed to you —
-   `hallucinated` = your claim did not hold, `duplicated` = your matching was too loose, `waived` = a
-   project decision. Do not repeat the finding or the failure mode.
+   re-file a finding that is pending or accepted. A card has only two outcomes in the UI — **Accept**,
+   which applies it and keeps the card on file, and **Decline**, which deletes it outright. Declines
+   leave no record, so nothing tells you a finding was turned down: if a card you would file looks like
+   one that has vanished since your last run, file it once and say in the report that it may already
+   have been declined, rather than filing it again every run.
 7. **Append to `audits[]` only.** Never write into `features[]` / `items[]` / `coverage` /
    `suggestions[]`. `aid` continues from the highest existing `A###`. Card shape:
 
@@ -88,6 +90,7 @@ d = json.loads(s[i+len(tag):j])
 9. **Write and verify**: re-serialize the data block (indent 2), read it back, and assert it parses,
    `features[]`/`items[]`/`testcases[]`/`suggestions[]` lengths are unchanged, every new card is
    `pending` with a non-empty quote, and every non-`missing` card's `target` matches an existing row id.
+   Do not write `reject_kind` / `reject_reason` — declines delete the card instead of labelling it.
 10. **Report**: counts per finding and per kind, which sources you used and which were blank, the rows
     that came out clean, and the two reminders — reload the tab; Accept/Reject happens in the UI only.
 

@@ -108,7 +108,7 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
 | `coverage.functional[]` `coverage.assertions[]` `coverage.code` | `CG##`, `SVA##`, targets + sign-off |
 | `suggestions[]` | agent inbox — proposals for rows that do not exist yet. **Not the plan.** `S###` |
-| `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. **Not the plan.** `A###` |
+| `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. Two outcomes only: **Accept** applies the fix and keeps the card, **Decline** deletes it (no `reject_kind`, no record). **Not the plan.** `A###` |
 
 Cross-references are ID strings: `features[].related_refs[] → features[].id` (command-category only —
 lint warns when a link resolves to another category), `testcases[].feature_refs[] → features[].id`,

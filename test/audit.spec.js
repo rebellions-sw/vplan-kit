@@ -98,17 +98,19 @@ test('a card whose target row is gone refuses to apply', async ({ page }) => {
   expect(await page.evaluate(() => DATA.audits[0].status)).toBe('pending');
 });
 
-test('rejecting records the label, and reopening keeps what was already applied', async ({ page }) => {
+test('declining throws the card away, and reopening keeps what was already applied', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await seedAudits(page);
 
-  await page.click('[data-act="audit-reject"][data-i="1"][data-k="waived"]');
-  expect(await page.evaluate(() => DATA.audits[1].reject_kind)).toBe('waived');
+  // Decline discards: the card is gone from the file, no status and no reason kept
+  await page.click('[data-act="audit-decline"][data-i="1"]');
+  expect(await page.evaluate(() => DATA.audits.map(a => a.aid))).toEqual(['A001', 'A003', 'A004']);
+  expect(await page.evaluate(() => DATA.audits.some(a => a.status === 'rejected'))).toBe(false);
   expect(await page.evaluate(() => DATA.features.find(f => f.id === 'F02').name)).toBe('second feature');
 
   await page.click('[data-act="audit-accept"][data-i="0"]');
-  await page.click('[data-act="sug-group"][data-g="audit:feature:accepted"]');   // decided cards fold away
+  await page.click('[data-act="sug-group"][data-g="audit:feature:accepted"]');   // accepted cards fold away
   await page.click('[data-act="audit-reopen"][data-i="0"]');
   const st = await page.evaluate(() => ({ card: DATA.audits[0], row: DATA.features.find(f => f.id === 'F01') }));
   expect(st.card.status).toBe('pending');
@@ -141,6 +143,19 @@ test('Refresh carries an audit target along with the row it renumbers', async ({
   expect(st.target).toBe('F01');
 });
 
+test('only Accept and Decline are offered — no reject labels, no reject note', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await seedAudits(page);
+
+  const card = page.locator('.sug').filter({ hasText: 'A001' });   // seed() also renders suggestion cards
+  await expect(card.locator('[data-act="audit-accept"]')).toHaveCount(1);
+  await expect(card.locator('[data-act="audit-decline"]')).toHaveCount(1);
+  await expect(card.locator('.btn.sm')).toHaveCount(2);
+  await expect(page.locator('[data-act="audit-reject"]')).toHaveCount(0);
+  await expect(page.locator('.panel-head', { hasText: 'Audit from AI' })).not.toContainText('rejected');
+});
+
 test('a snapshot shows audit findings but cannot act on them', async ({ page }) => {
   await openVplan(page);
   await seed(page);
@@ -149,6 +164,7 @@ test('a snapshot shows audit findings but cannot act on them', async ({ page }) 
 
   await expect(page.locator('h2', { hasText: 'Audit from AI' })).toHaveCount(1);
   await expect(page.locator('[data-act="audit-accept"]').first()).toBeHidden();
+  await expect(page.locator('[data-act="audit-decline"]').first()).toBeHidden();
 
   const before = await page.evaluate(() => DATA.features.find(f => f.id === 'F01').description);
   await page.evaluate(() => document.querySelector('[data-act="audit-accept"]').click());
