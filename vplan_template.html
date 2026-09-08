@@ -1031,7 +1031,9 @@ function auditCard(a,all,kind){
 }
 function auditPanel(kind){
   const all=DATA.audits||[];
-  const mine=all.filter(a=>(a.kind||'feature')===kind);
+  /* Only open findings render. A card decided by an older build (status accepted/rejected) is history
+     that no longer has a home here — showing it would offer Accept on a fix that is already in the row. */
+  const mine=all.filter(a=>(a.kind||'feature')===kind && (a.status||'pending')==='pending');
   const what=kind==='item'?'verification item':'feature';
   const tally=(E.finding||[]).filter(f=>mine.some(a=>a.finding===f))
     .map(f=>`<span class="badge ${FINDING_BADGE[f]||'b-warn'}">${mine.filter(a=>a.finding===f).length} ${esc(f)}</span>`).join('');

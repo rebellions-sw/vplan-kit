@@ -54,12 +54,12 @@ d = json.loads(s[i+len(tag):j])
    - Could a verification engineer act on it as written? An item needs a judgeable claim and a real
      `oracle`; a feature needs a description that says what correct means. (no → `insufficient`)
    - For a feature: is any item actually verifying it? (no → `missing` item card)
-6. **Respect what was already decided.** Read `audits[]` **and** `suggestions[]` before writing: never
-   re-file a finding that is pending or accepted. A card has only two outcomes in the UI — **Accept**,
-   which applies it and keeps the card on file, and **Decline**, which deletes it outright. Declines
-   leave no record, so nothing tells you a finding was turned down: if a card you would file looks like
-   one that has vanished since your last run, file it once and say in the report that it may already
-   have been declined, rather than filing it again every run.
+6. **`audits[]` holds only open findings.** Both buttons consume the card: **Accept** applies the fix
+   to the row and deletes the card, **Decline** deletes it unapplied. The inbox therefore says what is
+   still undecided and nothing about history — **read the rows themselves** to see what was already
+   dealt with (an accepted fix is now the row's own text), and read `suggestions[]`, which does keep a
+   record. Never re-file a card that is already pending. A finding you cannot see reflected in the rows
+   may simply have been declined: file it once, and note in the report that it may be a repeat.
 7. **Append to `audits[]` only.** Never write into `features[]` / `items[]` / `coverage` /
    `suggestions[]`. `aid` continues from the highest existing `A###`. Card shape:
 
@@ -90,7 +90,8 @@ d = json.loads(s[i+len(tag):j])
 9. **Write and verify**: re-serialize the data block (indent 2), read it back, and assert it parses,
    `features[]`/`items[]`/`testcases[]`/`suggestions[]` lengths are unchanged, every new card is
    `pending` with a non-empty quote, and every non-`missing` card's `target` matches an existing row id.
-   Do not write `reject_kind` / `reject_reason` — declines delete the card instead of labelling it.
+   `status` is always `pending` — there is no accepted or rejected state, and no `reject_kind`,
+   `reject_reason` or `accepted_as`: both buttons remove the card.
 10. **Report**: counts per finding and per kind, which sources you used and which were blank, the rows
     that came out clean, and the two reminders — reload the tab; Accept/Reject happens in the UI only.
 
