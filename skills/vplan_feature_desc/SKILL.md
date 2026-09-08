@@ -67,8 +67,17 @@ unused  ·  vpn · ppn · attr[3:0]
 
 A description that contains the marker is rendered in a fixed-pitch font, so **lay the lines out as
 columns**: a short direction label, then ` · ` before the field list and between fields. No backticks
-(nothing renders them), no bullet dashes on the field lines. Keep the `unused` line last, and put a
-`파생 ▸ …` line first when the row has derived commands, separated by a blank line.
+(nothing renders them), no bullet dashes on the field lines. Keep the `unused` line last.
+
+Above the field lists, and separated from them by a blank line, put the header lines:
+
+- `파생 ▸ …` when the row has derived commands (or `방향 ▸ …` when the command's direction is the
+  distinguishing fact),
+- `flow ▸ …` — **one to three short lines** tracing what the command does INSIDE the ATU, named by the
+  stages the plan's own `behavior` rows cover: bridge (arbitration, ID inject, I/F conversion) → front
+  (gatekeeper, slicer, WRR, L1 lookup) → middle (MSHR alloc/merge, TID) → back (credit) → SOM, and the
+  response direction back through L1 update / unroll / response arbitration. Branch with `hit → … /
+  miss → …` rather than prose, and say plainly when a stage is skipped ("MSHR · SOM 경유 없음").
 
 Group by direction (IP→ATU request, ATU→SOM request, response), say plainly when there is no response,
 and list **derived commands together in the parent row** — `Invalidation` covers INV ALL / SID / CAT,
