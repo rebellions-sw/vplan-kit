@@ -75,8 +75,10 @@ backticks (nothing renders them):
 - `flow ▸ …` next — **one to three short lines** tracing the path INSIDE the ATU, named by the stages
   the plan's own `behavior` rows cover: bridge (arbitration, ID inject, I/F conversion) → front
   (gatekeeper, slicer, WRR, L1 lookup) → middle (MSHR alloc/merge, TID) → back (credit) → SOM, then the
-  response direction (L1 update / unroll / response arbitration). Branch as `hit → … · miss → …`, and
-  say plainly when a stage is skipped ("MSHR·SOM 경유 없음");
+  response direction (L1 update / unroll / response arbitration). Say plainly when a stage is skipped
+  ("MSHR·SOM 경유 없음"). **A command that goes through the L1 lookup gets BOTH branches — `hit → …`
+  and `miss → …` — never the miss path alone**, and where the derived commands differ on hit (a
+  prefetch that only fills L1 answers nothing), say which does what;
 - `operand` last: one `·` line per direction, `unused` at the end.
 
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
