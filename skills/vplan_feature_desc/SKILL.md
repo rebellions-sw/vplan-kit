@@ -61,10 +61,12 @@ the field name is the information. Three or four lines total:
 flow ▸ SOM INV REQ → inv_table set·L1 flush → 전 master broadcast
   · 진행 중 요청은 위치별 drop(queue / pre-issue / post-issue)
   · master CPL bitmap 집계 → SOM CPL
-operand
-  · INV REQ (SOM→ATU→IP) : cmd, id, cat, route[1:0]
-  · INV CPL (IP→ATU→SOM) : cmd, id(echo), cat, cnote[31], route[34], urgent
+operand on REQ
+  · SOM→ATU→IP : cmd, id, cat, route[1:0]
   · unused : vpn, ppn, attr[3:0]
+operand on RSP
+  · INV CPL (IP→ATU→SOM) : cmd, id(echo), cat, cnote[31], route[34], urgent
+  · drop error (ATU→IP) : attr[15], attr[14:13], attr[12:11], attr[10:9], cat
 ```
 
 Layout rules — the cell uses the same proportional font as every other field, so **never align with
@@ -79,7 +81,9 @@ backticks (nothing renders them):
   ("MSHR·SOM 경유 없음"). **A command that goes through the L1 lookup gets BOTH branches — `hit → …`
   and `miss → …` — never the miss path alone**, and where the derived commands differ on hit (a
   prefetch that only fills L1 answers nothing), say which does what;
-- `operand` last: one `·` line per direction, `unused` at the end.
+- the operands last, split into **`operand on REQ`** and **`operand on RSP`** — one `·` line per
+  direction inside each, `unused` at the end of the REQ block, and a plain `· 없음` under RSP when the
+  command answers nothing.
 
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
