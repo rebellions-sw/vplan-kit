@@ -57,32 +57,27 @@ the field name is the information. Three or four lines total:
 
 ```
 === AI ===
-파생 ▸ INV ALL · INV SID · INV CAT      (cmd로 구분, 범위는 route[1:0])
-
-INV REQ   SOM → ATU → IP  ·  cmd · id · cat · route[1:0]
-INV CPL   IP → ATU → SOM  ·  cmd · id(echo) · cat · cnote[31] · route[34] · urgent
-drop err  ATU → IP  ·  attr[15] · attr[14:13] · attr[12:11] · attr[10:9] · cat
-unused  ·  vpn · ppn · attr[3:0]
+파생 ▸ INV ALL / INV SID / INV CAT (cmd로 구분, 범위는 route[1:0])
+flow ▸ SOM INV REQ → inv_table set·L1 flush → 전 master broadcast
+  · 진행 중 요청은 위치별 drop(queue / pre-issue / post-issue)
+  · master CPL bitmap 집계 → SOM CPL
+operand
+  · INV REQ (SOM→ATU→IP) : cmd, id, cat, route[1:0]
+  · INV CPL (IP→ATU→SOM) : cmd, id(echo), cat, cnote[31], route[34], urgent
+  · unused : vpn, ppn, attr[3:0]
 ```
 
-A description that contains the marker is rendered in a fixed-pitch font, so **lay the lines out as
-columns**: a short direction label, then ` · ` before the field list and between fields. No backticks
-(nothing renders them), no bullet dashes on the field lines. Keep the `unused` line last.
+Layout rules — the cell uses the same proportional font as every other field, so **never align with
+padded spaces**; they will not line up. Structure with a leading `·` and a colon instead, and no
+backticks (nothing renders them):
 
-Above the field lists, and separated from them by a blank line, put the header lines:
-
-- `파생 ▸ …` when the row has derived commands (or `방향 ▸ …` when the command's direction is the
-  distinguishing fact),
-- `flow ▸ …` — **one to three short lines** tracing what the command does INSIDE the ATU, named by the
-  stages the plan's own `behavior` rows cover: bridge (arbitration, ID inject, I/F conversion) → front
-  (gatekeeper, slicer, WRR, L1 lookup) → middle (MSHR alloc/merge, TID) → back (credit) → SOM, and the
-  response direction back through L1 update / unroll / response arbitration. Branch with `hit → … /
-  miss → …` rather than prose, and say plainly when a stage is skipped ("MSHR · SOM 경유 없음").
-
-Group by direction (IP→ATU request, ATU→SOM request, response), say plainly when there is no response,
-and list **derived commands together in the parent row** — `Invalidation` covers INV ALL / SID / CAT,
-`Prefetch` covers L1 only / L0 only / L0 L1 — naming only the field that distinguishes them. A short
-parenthetical is fine where a field's role is not obvious from its name (`id`(echo)); a sentence is not.
+- `파생 ▸ …` (or `방향 ▸ …`) first when derived commands or the direction is the distinguishing fact;
+- `flow ▸ …` next — **one to three short lines** tracing the path INSIDE the ATU, named by the stages
+  the plan's own `behavior` rows cover: bridge (arbitration, ID inject, I/F conversion) → front
+  (gatekeeper, slicer, WRR, L1 lookup) → middle (MSHR alloc/merge, TID) → back (credit) → SOM, then the
+  response direction (L1 update / unroll / response arbitration). Branch as `hit → … · miss → …`, and
+  say plainly when a stage is skipped ("MSHR·SOM 경유 없음");
+- `operand` last: one `·` line per direction, `unused` at the end.
 
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
