@@ -90,4 +90,12 @@ d = json.loads(s[i+len(tag):j])
 ## Rules that outlive this skill
 
 - The 수락 button is the only path from suggestion to plan. Proposing is your job; deciding is not.
+- **Distinguish a specification from an open question.** A source carries both: sections that state
+  how the design behaves, and lists of things the designer still means to decide — `추가 고민사항`,
+  `앞으로 고민 해야할것`, `코드 변경사항`, red text, and any sentence ending in 확인하기 / 고민 /
+  ?? / TBD. Never write an open question as a requirement. If it belongs in the plan at all, say in
+  the row that it is unsettled and quote THAT sentence, not a nearby specification.
+- **The quote must support the sentence it sits under.** One card, one claim, one quote that a reader
+  can match to it. A quote taken from a different paragraph than the claim is a fabrication with a
+  citation attached — worse than no card.
 - A card whose quote you cannot point to in a source does not get written.

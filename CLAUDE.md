@@ -143,7 +143,11 @@ optional `reject_reason` note. The first two are feedback on the agent's own wor
 extraction wrong); the third is a project decision. Read them before proposing anything, so the same thing
 is not proposed twice and the next round corrects the failure the label names.
 Lint warns on a rejection with no reason, and on a pending suggestion with no `source.quote` — an
-unverifiable card is worse than no card.
+unverifiable card is worse than no card. Two rules about quoting hold for every agent skill: a source
+states requirements in some sections and merely raises open questions in others (`추가 고민사항`,
+`앞으로 고민 해야할것`, `코드 변경사항`, red text, sentences ending in 확인하기 / TBD) — an open
+question may never be written as a requirement — and the quote on a card must support the very
+sentence it is attached to, not a neighbouring paragraph.
 
 ### What is deliberately NOT in the schema
 
