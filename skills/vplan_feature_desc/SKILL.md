@@ -53,37 +53,40 @@ the sentence:
 **A `command` row is described by its operands — a list, not a spec.** Name which request/response
 fields the command actually uses, and which of the interface's fields it leaves unused. **Do not spell
 out what goes IN a field**: no opcode numbers, no bit encodings, no page-size tables, no CSR defaults —
-the field name is the information. Three or four lines total:
+the field name is the information.
+
+The layout is fixed. Sections are bracketed headers at column 0; every detail under one is a `·` line
+indented two spaces. This is the exact shape (a real row):
 
 ```
 === AI ===
-파생 ▸ INV ALL / INV SID / INV CAT (cmd로 구분, 범위는 route[1:0])
-flow ▸ SOM INV REQ → inv_table set·L1 flush → 전 master broadcast
-  · 진행 중 요청은 위치별 drop(queue / pre-issue / post-issue)
-  · master CPL bitmap 집계 → SOM CPL
-operand on REQ
+[cmd] INV ALL / INV SID / INV CAT (cmd로 구분, 범위는 route[1:0])
+[flow] SOM INV REQ → inv_table set·L1 flush → 전 master broadcast → 진행 중 요청은 위치별 drop(queue / pre-issue / post-issue) → master CPL bitmap 집계 → SOM CPL
+[operand on REQ]
   · SOM→ATU→IP : cmd, id, cat, route[1:0]
   · unused : vpn, ppn, attr[3:0]
-operand on RSP
+[operand on RSP]
   · INV CPL (IP→ATU→SOM) : cmd, id(echo), cat, cnote[31], route[34], urgent
   · drop error (ATU→IP) : attr[15], attr[14:13], attr[12:11], attr[10:9], cat
 ```
 
-Layout rules — the cell uses the same proportional font as every other field, so **never align with
-padded spaces**; they will not line up. Structure with a leading `·` and a colon instead, and no
-backticks (nothing renders them):
+- **`[cmd]`** — only when the row has derived commands: list them on the header line with the field
+  that tells them apart in parentheses. Omit the section entirely otherwise.
+- **`[flow]`** — the path INSIDE the ATU, named by the stages the plan's own `behavior` rows cover:
+  bridge (arbitration, ID inject, I/F conversion) → front (gatekeeper, slicer, WRR, L1 lookup) →
+  middle (MSHR alloc/merge, TID) → back (credit) → SOM, and back through L1 update / LIT unroll /
+  response arbitration. Put the common prefix on the header line. **A command that goes through the L1
+  lookup gets both branches as `·` lines — `hit → …` and `miss → …`, never the miss path alone** — and
+  each branch runs to its end on one line (`miss → … → SOM → TBU RESP → L1 update → LIT unroll → IP`).
+  Where derived commands differ on a branch, say which does what. Say plainly when a stage is skipped
+  ("MSHR·SOM 경유 없음"). A command with no branch keeps the whole flow on the header line.
+- **`[operand on REQ]`** — one `·` line per direction (`IP→ATU`, `ATU→SOM`, `ATU 내부`, `ATQb→ATU` …),
+  with `· unused : …` last. Use `+` when a direction only adds fields to the one above it.
+- **`[operand on RSP]`** — same shape. **Omit the whole section when the command answers nothing**;
+  do not write an empty or "없음" block.
 
-- `파생 ▸ …` (or `방향 ▸ …`) first when derived commands or the direction is the distinguishing fact;
-- `flow ▸ …` next — **one to three short lines** tracing the path INSIDE the ATU, named by the stages
-  the plan's own `behavior` rows cover: bridge (arbitration, ID inject, I/F conversion) → front
-  (gatekeeper, slicer, WRR, L1 lookup) → middle (MSHR alloc/merge, TID) → back (credit) → SOM, then the
-  response direction (L1 update / unroll / response arbitration). Say plainly when a stage is skipped
-  ("MSHR·SOM 경유 없음"). **A command that goes through the L1 lookup gets BOTH branches — `hit → …`
-  and `miss → …` — never the miss path alone**, and where the derived commands differ on hit (a
-  prefetch that only fills L1 answers nothing), say which does what;
-- the operands last, split into **`operand on REQ`** and **`operand on RSP`** — one `·` line per
-  direction inside each, `unused` at the end of the REQ block, and a plain `· 없음` under RSP when the
-  command answers nothing.
+The cell uses the same proportional font as every other field, so **never align with padded spaces** —
+they will not line up. No backticks either; nothing renders them.
 
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
