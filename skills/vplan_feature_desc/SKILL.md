@@ -50,22 +50,22 @@ the sentence:
 | `behavior` | the operation-flow and corner-case sections; the ref-model's logic | the trigger, the resulting behavior, and the boundary that makes it wrong |
 | `parameter` | the CSR/SFR sheet and parameter tables | the field, its legal values or reset value, and what depends on it |
 
-**A `command` row is described by its operands, not by prose about what it "does".** State which
-request fields are valid for it and how they are encoded — on the IP side (`atq_ip_cmd`, `atq_ip_id`,
-`atq_ip_cat`, `atq_ip_vpn`, `atq_ip_ppn`, `atq_ip_cnote[..]`, `atq_ip_attr[..]` …) and, where the source
-maps it, on the SOM side (`atq_cmd`, `atq_route[..]`, `atq_urgent`, `atq_cnote[..]`). Say which fields are
-required, which must be zero, which are don't-care, and what response the IP gets (yes / none /
-echo-only). **Derived commands are listed together in the parent row**: `Invalidation` enumerates
-`INV ALL` / `INV SID` / `INV CAT`, `Prefetch` enumerates `L1 only` / `L0 only` / `L0 L1`, each with the
-fields or encodings that differ between them. The shape is a compact field list, not sentences:
+**A `command` row is described by its operands — a list, not a spec.** Name which request/response
+fields the command actually uses, and which of the interface's fields it leaves unused. **Do not spell
+out what goes IN a field**: no opcode numbers, no bit encodings, no page-size tables, no CSR defaults —
+the field name is the information. Three or four lines total:
 
 ```
 === AI ===
-- 종류: INV ALL(0x1) / INV SID(0x2) / INV CAT(0x3)
-- IP→ATU: `atq_ip_cmd`, `atq_ip_cat`(SID·SSID; ALL은 don't-care), `atq_ip_vpn`(don't-care) …
-- ATU→SOM: `atq_cmd`=same, `atq_route[34]=0`, CPL은 `atq_cnote[31]=1` …
-- 응답: IP는 INV CPL로 ID echo(`cnote[31]=1`)
+- 파생: INV ALL / INV SID / INV CAT — `cmd`로 구분, 대상 범위는 `route[1:0]`
+- INV REQ (SOM→ATU→IP): `cmd`, `id`, `cat`, `route[1:0]`  /  unused: `vpn`, `ppn`, `attr`
+- INV CPL (IP→ATU→SOM): `cmd`, `id`(echo), `cat`, `cnote[31]`, `route[34]`, `urgent`
 ```
+
+Group by direction (IP→ATU request, ATU→SOM request, response), say plainly when there is no response,
+and list **derived commands together in the parent row** — `Invalidation` covers INV ALL / SID / CAT,
+`Prefetch` covers L1 only / L0 only / L0 L1 — naming only the field that distinguishes them. A short
+parenthetical is fine where a field's role is not obvious from its name (`id`(echo)); a sentence is not.
 
 A row whose category is blank is still fair game — take the name's own wording as the search key, and
 say in the report that its category was empty.
