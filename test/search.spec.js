@@ -113,10 +113,10 @@ test('the Verification items list has the same box, over its own fields', async 
   await page.evaluate(() => {
     DATA.items = [
       { id:'VI001', category:'behavior', name:'miss issues a request', description:'', feature_refs:['F01'],
-        oracle:'compared against the ref-model', judged_by:['scoreboard'], stimulus:'directed',
+        oracle:'compared against the ref-model', judged_by:['scoreboard'],
         status:'editing', phase:'pre-Alpha', implemented:'todo', reviewed:false, notes:'' },
       { id:'VI002', category:'command', name:'prefetch does not merge', description:'', feature_refs:[],
-        oracle:'', judged_by:['sva'], stimulus:'random', status:'editing', phase:'Alpha',
+        oracle:'', judged_by:['sva'], status:'editing', phase:'Alpha',
         implemented:'todo', reviewed:false, notes:'Case 9' },
     ];
     render();

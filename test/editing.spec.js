@@ -153,8 +153,8 @@ test('Refresh renumbers ids in list order and carries every reference with them'
       { id: 'F02', name: 'b', category: '', description: '', phase: 'pre-Alpha', status: 'editing', reviewed: false, notes: '' },
     ];
     D.items = [
-      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', judged_by: [], stimulus: 'directed', status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
-      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', judged_by: [], stimulus: 'directed', status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
+      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
+      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
     ];
     D.suggestions = [{ sid: 'S1', kind: 'feature', status: 'accepted', accepted_as: 'F07', confidence: 'high',
                        created: '2026-08-28', source: {}, rationale: '', payload: {}, reject_reason: '' }];

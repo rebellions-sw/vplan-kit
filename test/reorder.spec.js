@@ -57,7 +57,7 @@ test('items reorder the same way, and the order is what gets saved', async ({ pa
   await page.evaluate(() => {
     DATA.items = ['VI001', 'VI002'].map(id => ({
       id, category: 'behavior', name: id, description: '', feature_refs: [], oracle: '',
-      judged_by: [], stimulus: 'directed', status: 'editing', phase: 'Alpha',
+      judged_by: [], status: 'editing', phase: 'Alpha',
       implemented: 'todo', reviewed: false, notes: '',
     }));
     render();

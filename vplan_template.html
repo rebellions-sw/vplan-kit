@@ -405,12 +405,9 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
       "insufficient",
       "mismatch"
     ],
-    "stimulus": [
-      "directed",
-      "random"
-    ],
     "judged_by": [
-      "vip",
+      "SOM-VIP",
+      "IP-VIP",
       "sva",
       "test/seq",
       "scoreboard",
@@ -878,7 +875,6 @@ function sugCard(s,all,kind,what){
           ${kind==='item'
             ? `${field('Link to',cell(`${p}.payload.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'}))}
                ${field('Oracle',cell(`${p}.payload.oracle`,{ph:'what the result is compared against'}))}
-               ${field('Stimulus',sel(`${p}.payload.stimulus`,E.stimulus))}
                ${field('Judged by',togChips(`${p}.payload.judged_by`,E.judged_by,s.payload&&s.payload.judged_by))}
                ${field('Phase',sel(`${p}.payload.phase`,E.phase))}`
             : field('Phase',sel(`${p}.payload.phase`,E.phase))}
@@ -958,7 +954,6 @@ function peekPane(){
         ${line('category',txt(row.category))}
         ${line('phase',txt(row.phase))}
         ${isItem?line('implemented',txt(row.implemented)):''}
-        ${isItem?line('stimulus',txt(row.stimulus)):''}
         ${isItem?line('judged by',txt(row.judged_by)):''}
         ${line(isItem?'verifies':'verified by',linked.length?linked.map(id=>`<span class="reflink">${esc(id)}</span>`).join(' '):'')}
         ${line('description',txt(row.description))}
@@ -980,7 +975,7 @@ const FINDING_WHY={
 const FINDING_BADGE={missing:'b-err',insufficient:'b-warn',mismatch:'b-err'};
 const auditRow=a=>((a.kind||'feature')==='item'?DATA.items:DATA.features).find(r=>r.id===a.target);
 const FIX_LBL={name:'Name',description:'Description',category:'Category',phase:'Phase',
-  status:'Definition',notes:'Notes',oracle:'Oracle',stimulus:'Stimulus',judged_by:'Judged by',
+  status:'Definition',notes:'Notes',oracle:'Oracle',judged_by:'Judged by',
   feature_refs:'Link to',implemented:'Implemented'};
 function auditCard(a,all,kind){
   const i=all.indexOf(a), p=`audits.${i}`;
@@ -991,7 +986,6 @@ function auditCard(a,all,kind){
     if(k==='category')    return sel(`${p}.fix.category`,E.category);
     if(k==='phase')       return sel(`${p}.fix.phase`,E.phase);
     if(k==='status')      return sel(`${p}.fix.status`,E.status);
-    if(k==='stimulus')    return sel(`${p}.fix.stimulus`,E.stimulus);
     if(k==='implemented') return sel(`${p}.fix.implemented`,E.implemented);
     if(k==='judged_by')   return togChips(`${p}.fix.judged_by`,E.judged_by,fix.judged_by);
     if(k==='feature_refs')return cell(`${p}.fix.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'});
@@ -1191,8 +1185,7 @@ VIEW.items=()=>`
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div></td>
       <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
         ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td>${field('Stimulus',sel(`items.${i}.stimulus`,E.stimulus))}</td>
-      <td colspan="3">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
+      <td colspan="4">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="6">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1215,7 +1208,7 @@ function commonBaseTest(){
   return Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0]||'';
 }
 const TEMPLATE={
-  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',judged_by:[],stimulus:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
+  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},

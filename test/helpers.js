@@ -71,7 +71,7 @@ export async function seed(page) {
     ];
     DATA.items = [
       { id: 'VI001', category: 'command', name: 'first item', description: '', feature_refs: ['F01'], oracle: 'scoreboard',
-        judged_by: ['sva'], stimulus: 'directed', status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, notes: '' },
+        judged_by: ['sva'], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, notes: '' },
     ];
     const card = (sid, name, extra) => Object.assign({
       sid, kind: 'feature', status: 'pending', created: '2026-08-31', confidence: 'high',
