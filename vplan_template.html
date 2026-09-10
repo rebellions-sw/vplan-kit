@@ -106,6 +106,16 @@ body{
 .ms-item > b.asis{text-transform:none}
 .ms-item a{color:var(--accent);text-decoration:none;font-weight:600;font-size:11px}
 /* Input SRC block — one grid so both rows line up on every column */
+.topo{margin-top:10px}
+.topo-head{display:flex;align-items:center;gap:7px;width:100%;padding:6px 8px;border:1px solid var(--line);
+  border-radius:6px;background:var(--panel-2);color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer;text-align:left}
+.topo-head:hover{border-color:var(--accent);color:var(--ink)}
+.topo-head > b{font-size:12px;font-weight:650}
+.topo-head > .hint{margin-left:auto}
+.topo-body{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;background:var(--panel);
+  padding:12px;overflow-x:auto}
+.topo-body svg{display:block;max-width:100%;height:auto;min-width:900px}
+@media print{.topo-body{break-inside:avoid}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
 .srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;gap:5px 9px;padding:7px 10px;background:var(--panel-2);
@@ -476,6 +486,7 @@ let DATA = JSON.parse(document.getElementById('vplan-data').textContent);
 let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
+let TOPO = false;            // is the testbench-topology fold open
 let OPEN = new Set();          // expanded testcase ids
 let DIRTY = false;
 
@@ -749,6 +760,7 @@ function render(){
       <span class="src-k">Ref-Model</span>${cell('meta.ref_model',{cls:'mono mini src-v',ph:'ref-model 경로'})}${/^https?:\/\//.test(DATA.meta.ref_model||'')?`<a class="src-go" href="${esc(DATA.meta.ref_model)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
       <span class="src-k">CSR</span>${cell('meta.csr',{cls:'mono mini src-v',ph:'SFR 엑셀 경로 (.xlsx) — 아직 없음'})}${/^https?:\/\//.test(DATA.meta.csr||'')?`<a class="src-go" href="${esc(DATA.meta.csr)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
     </div>
+    ${topoBlock()}
     <div class="tabs">${tabs}</div>
   </div>
   <div id="tabbody">${VIEW[TAB]()}</div>
@@ -922,6 +934,44 @@ function sugPanel(kind){
   ${g.pending.length?g.pending.map(s=>sugCard(s,all,kind,what)).join('')
     :`<div class="lint-item"><span class="badge b-ok">OK</span><span>No pending suggestions.</span></div>`}
   </div></div>`;
+}
+
+/* ---- testbench topology (an SVG the plan carries in meta.topology) ------- */
+/* The one place the document embeds markup instead of escaping it — a diagram is markup. It is
+   sanitised on every render rather than trusted: a plan file travels between people, and an SVG can
+   carry a script element, on* handlers and external references. Allowlist only, drop the rest. */
+const SVG_OK=new Set(['svg','g','defs','marker','path','rect','circle','ellipse','line','polyline',
+  'polygon','text','tspan','style','title','desc','clippath','lineargradient','radialgradient','stop','use']);
+function sanitizeSvg(src){
+  let doc;
+  try{ doc=new DOMParser().parseFromString(String(src||''),'image/svg+xml'); }catch(e){ return ''; }
+  const root=doc.documentElement;
+  if(!root || root.nodeName.toLowerCase()!=='svg' || doc.querySelector('parsererror')) return '';
+  const walk=el=>{
+    for(const child of [...el.children]){
+      if(!SVG_OK.has(child.nodeName.toLowerCase())){ child.remove(); continue; }
+      for(const at of [...child.attributes]){
+        const n=at.name.toLowerCase();
+        // href is allowed only as a same-document reference (marker/use); everything remote goes
+        if(n.startsWith('on') || (n==='href'||n==='xlink:href') && !at.value.trim().startsWith('#')) child.removeAttribute(at.name);
+      }
+      walk(child);
+    }
+  };
+  for(const at of [...root.attributes]) if(at.name.toLowerCase().startsWith('on')) root.removeAttribute(at.name);
+  walk(root);
+  root.setAttribute('width','100%');
+  root.removeAttribute('height');
+  return root.outerHTML;
+}
+function topoBlock(){
+  const svg=sanitizeSvg(DATA.meta&&DATA.meta.topology);
+  if(!svg) return '';
+  return `<div class="topo">
+    <button class="topo-head" data-act="topo"><span class="caret">${TOPO?'▾':'▸'}</span>
+      <b>Testbench topology</b><span class="hint">${TOPO?'클릭하면 접힙니다':'클릭하면 펼쳐집니다'}</span></button>
+    ${TOPO?`<div class="topo-body">${svg}</div>`:''}
+  </div>`;
 }
 
 /* ---- peek drawer (read a linked row without leaving the one you are on) --- */
@@ -1679,6 +1729,7 @@ document.addEventListener('click',e=>{
     if(c&&c.id){ const m=String(c.id).match(/^([A-Za-z_]+)(\d+)$/); c.id = m? m[1]+String(+m[2]+1).padStart(m[2].length,'0')+'_copy' : c.id+'_copy'; }
     arr.splice(i+1,0,c); markDirty(); render(); return;
   }
+  if(act==='topo'){ TOPO=!TOPO; render(); return; }
   if(act==='peek'){ PEEK={kind:b.dataset.peek,id:b.dataset.id}; render(); return; }
   if(act==='peek-close'){ PEEK=null; render(); return; }
   /* Open ↗ takes you to the row itself: switch tabs, close the drawer, then bring the row into view
