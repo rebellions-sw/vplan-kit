@@ -26,6 +26,9 @@ printf '%s\n' "$KIT" > "$RUNTIME/kit-path"
 # Runtime scripts, however, ARE copied out of the clone: launchd cannot read or execute anything under
 # ~/Documents, ~/Desktop or ~/Downloads (macOS TCC denies it silently), and clones land in those often.
 cp "$KIT/bin/vplan-save-server.py" "$KIT/bin/vplan-sync.sh" "$RUNTIME/"
+# the save helper rewraps each save in the current page code and reads the template from here —
+# a copy, because launchd cannot read a clone that lives under ~/Documents
+cp "$KIT/vplan_template.html" "$RUNTIME/vplan_template.html"
 chmod +x "$RUNTIME/vplan-sync.sh"
 
 # Claude Code skills — whatever the clone ships, so a new skill needs no installer edit.

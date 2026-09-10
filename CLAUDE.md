@@ -48,8 +48,15 @@ document to the local `com.vplan.save` helper (127.0.0.1:8790, installed by `ins
 copy — a frozen, read-only fork with the save stamp where its buttons were; originals carry a Load
 button to pull a snapshot back. A personal launchd agent may mirror `~/vplans` to a backup directory
 (one-way, newer-only) — edit the `~/vplans` file, never a mirror copy.
-A plan file carries the page code it was saved with — after changing this template's code, transplant
-each plan's data block into a fresh template copy, and have the user reload open tabs.
+A plan file carries the page code it was saved with, which used to mean a tab left open on an older
+build silently reverted a plan (renderer AND any field that build did not know about) the next time
+its owner pressed Save. **The save helper now rewraps every save in the template's current page code**,
+copying the incoming data block across byte for byte, so the newest code is what lands whoever saved.
+It reads the template from `~/.vplan-kit/vplan_template.html` — a copy, because launchd cannot read a
+clone kept under `~/Documents` — which `install.sh` writes and `vplan-sync.sh` refreshes whenever the
+clone's template is newer. Editing the template still does not change an already-open tab: tell the
+user to reload. Transplanting a plan's data block by hand is now only needed for a plan that has not
+been saved since.
 
 In a sandbox that already ships a chromium binary, point at it instead of downloading:
 `VPLAN_CHROMIUM=/path/to/chromium npm test`.

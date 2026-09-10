@@ -63,7 +63,8 @@ button is the only path into the plan. 예외는 하나 — `/vplan_feature_desc
 ## Saving, snapshots, sharing
 
 - **Save (Cmd+S)** — no dialog, ever: the page posts itself to the local helper, which overwrites
-  `~/vplans/vplan_<IP>.html` in place. If the helper is down the save falls back to a download;
+  `~/vplans/vplan_<IP>.html` in place, rewrapping it in the template's current page code (당신 데이터는
+  그대로, 코드만 최신으로 — 오래된 탭에서 저장해도 플랜이 예전 코드로 되돌아가지 않습니다). If the helper is down the save falls back to a download;
   recover those with `zsh ~/.vplan-kit/vplan-sync.sh` (헬퍼 상태: `curl -s 127.0.0.1:8790/ping`).
 - **Save As (Cmd+Shift+S)** — writes a dated **snapshot**: a frozen, read-only copy that shows when
   it was saved where its buttons would be. **공유는 스냅샷 파일로** — 받는 사람은 아무 브라우저에서

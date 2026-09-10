@@ -19,6 +19,19 @@
 dl=$HOME/Downloads
 src=$HOME/vplans
 dst=${1:-}
+rt=$HOME/.vplan-kit
+
+# -- 0) keep the save helper's template copy current ----------------------------------------------
+# The helper rewraps every save in the template's page code, and reads it from $rt because launchd
+# cannot read a clone under ~/Documents. zsh can, so refresh the copy here whenever the clone moves
+# ahead — otherwise a template edit would not reach saves until the next install.sh.
+if [[ -r $rt/kit-path ]]; then
+  kit=$(<$rt/kit-path)
+  if [[ -r $kit/vplan_template.html && $kit/vplan_template.html -nt $rt/vplan_template.html ]]; then
+    /bin/cp -p "$kit/vplan_template.html" "$rt/vplan_template.html" &&
+      echo "$(date '+%Y-%m-%d %H:%M:%S') template copy refreshed"
+  fi
+fi
 
 # -- 1) ingest downloads --------------------------------------------------------------------------
 for f in $dl/vplan_*.html(N.Om); do

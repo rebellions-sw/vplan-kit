@@ -14,6 +14,8 @@ Guardrails:
     creates the file first, so this server can never mint or touch anything else
   - body must look like a vplan document (has the vplan-data block) and fit in 20 MB
   - writes are atomic: temp file in the same directory, then os.replace
+  - a save is rewrapped in the kit template's current page code (the incoming data block is copied
+    verbatim), so a tab left open on an older build cannot revert the file's renderer
 
 Optional: pass --mirror <dir> to also copy each saved file into a backup directory.
 
@@ -29,6 +31,9 @@ import time
 import urllib.parse
 
 HOME = os.path.expanduser('~/vplans')
+TEMPLATE = os.path.expanduser('~/.vplan-kit/vplan_template.html')
+DATA_TAG = '<script id="vplan-data" type="application/json">'
+CLOSE_TAG = '</' + 'script>'
 MIRROR = sys.argv[sys.argv.index('--mirror') + 1] if '--mirror' in sys.argv else ''
 PORT = 8790
 NAME_RE = re.compile(r'^vplan_[A-Za-z0-9._-]+\.html$')
@@ -38,6 +43,45 @@ MARKER = b'<script id="vplan-data"'
 
 def log(msg):
     print(time.strftime('%Y-%m-%d %H:%M:%S'), msg, flush=True)
+
+
+def data_block(text):
+    """(start, end) of the JSON payload inside a vplan document, or None.
+
+    The tag is cited in the file's own header comment, so the LAST occurrence is the real block.
+    """
+    i = text.rfind(DATA_TAG)
+    if i < 0:
+        return None
+    j = text.find(CLOSE_TAG, i)
+    return (i + len(DATA_TAG), j) if j > 0 else None
+
+
+def with_current_code(body):
+    """Return the plan's data wrapped in the template's current page code.
+
+    A plan file carries the renderer it was saved with, so a tab left open on an older build
+    silently reverts the file -- and any field that build did not know about is dropped with it.
+    Rewrapping on save makes the newest code the one that lands, whichever tab pressed Save, while
+    the incoming data block is copied across byte for byte. If anything is off (no kit, unreadable
+    template, either side missing its block), save what the page sent and say so in the log.
+
+    The template read here is the runtime COPY, not the clone: launchd cannot read ~/Documents on a
+    Mac that keeps the clone there, and the copy is refreshed by install.sh and by vplan-sync.sh.
+    """
+    try:
+        with open(TEMPLATE, encoding='utf-8') as f:
+            tpl = f.read()
+    except OSError:
+        return body, 'no template'
+    text = body.decode('utf-8')
+    src, dst = data_block(text), data_block(tpl)
+    if not src or not dst:
+        return body, 'no data block'
+    if tpl[:dst[0]] == text[:src[0]] and tpl[dst[1]:] == text[src[1]:]:
+        return body, ''                      # already the current code
+    merged = tpl[:dst[0]] + text[src[0]:src[1]] + tpl[dst[1]:]
+    return merged.encode('utf-8'), 'code refreshed from template'
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -90,6 +134,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = self.rfile.read(length)
             if MARKER not in body:
                 return self._reply(400, 'not a vplan document')
+            body, note = with_current_code(body)
             fd, tmp = tempfile.mkstemp(dir=HOME, prefix='.' + name + '.', suffix='.tmp')
             try:
                 with os.fdopen(fd, 'wb') as f:
@@ -105,7 +150,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     mirrored = ' +mirror'
             except OSError as e:
                 mirrored = f' (mirror failed: {e})'
-            log(f'saved {name} {length}B{mirrored}')
+            log(f'saved {name} {len(body)}B{mirrored}' + (f' — {note}' if note else ''))
             self._reply(200, 'saved')
         except Exception as e:  # keep the server alive no matter what one request does
             log(f'ERROR {e!r}')
