@@ -117,7 +117,15 @@ body{
 /* a diagram is reference, not the page: big enough to read the labels, capped so a wide drawing
    cannot push the tables off the screen -- past the cap the box scrolls instead */
 .topo-body svg{display:block;width:min(100%,900px);min-width:720px;height:auto;margin:0 auto}
-@media print{.topo-body{break-inside:avoid}}
+/* the fold is a thumbnail of a diagram, not the diagram: click the drawing to read it full-screen */
+.topo-body{cursor:zoom-in}
+.topo-lens{position:fixed;inset:0;z-index:80;display:flex;padding:20px;overflow:auto;cursor:zoom-out;
+  background:rgba(12,15,20,.6);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.topo-lens-fig{margin:auto;padding:16px;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;box-shadow:0 18px 48px rgba(0,0,0,.38)}
+.topo-lens svg{display:block;width:min(88vw,1440px);min-width:0;height:auto}
+.topo-lens-x{position:fixed;top:14px;right:16px}
+@media print{.topo-body{break-inside:avoid} .topo-lens{display:none!important}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
 .srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;gap:5px 9px;padding:7px 10px;background:var(--panel-2);
@@ -489,6 +497,7 @@ let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
 let TOPO = false;            // is the testbench-topology fold open
+let TOPOZ = false;           // ...and is the drawing itself open full-screen (click it)
 let OPEN = new Set();          // expanded testcase ids
 let DIRTY = false;
 
@@ -971,8 +980,11 @@ function topoBlock(){
   if(!svg) return '';
   return `<div class="topo">
     <button class="topo-head" data-act="topo"><span class="caret">${TOPO?'▾':'▸'}</span>
-      <b>Testbench topology</b><span class="hint">${TOPO?'클릭하면 접힙니다':'클릭하면 펼쳐집니다'}</span></button>
-    ${TOPO?`<div class="topo-body">${svg}</div>`:''}
+      <b>Testbench topology</b><span class="hint">${TOPO?'그림을 클릭하면 크게 봅니다':'클릭하면 펼쳐집니다'}</span></button>
+    ${TOPO?`<div class="topo-body" data-act="topo-zoom" title="클릭하면 크게 봅니다">${svg}</div>`:''}
+    ${TOPO&&TOPOZ?`<div class="topo-lens" data-act="topo-zoom" role="dialog" aria-label="Testbench topology">
+      <div class="topo-lens-fig">${svg}</div>
+      <button class="btn sm topo-lens-x" data-act="topo-zoom" title="닫기 (Esc)">✕</button></div>`:''}
   </div>`;
 }
 
@@ -1731,7 +1743,8 @@ document.addEventListener('click',e=>{
     if(c&&c.id){ const m=String(c.id).match(/^([A-Za-z_]+)(\d+)$/); c.id = m? m[1]+String(+m[2]+1).padStart(m[2].length,'0')+'_copy' : c.id+'_copy'; }
     arr.splice(i+1,0,c); markDirty(); render(); return;
   }
-  if(act==='topo'){ TOPO=!TOPO; render(); return; }
+  if(act==='topo'){ TOPO=!TOPO; TOPOZ=false; render(); return; }
+  if(act==='topo-zoom'){ TOPOZ=!TOPOZ; render(); return; }
   if(act==='peek'){ PEEK={kind:b.dataset.peek,id:b.dataset.id}; render(); return; }
   if(act==='peek-close'){ PEEK=null; render(); return; }
   /* Open ↗ takes you to the row itself: switch tabs, close the drawer, then bring the row into view
@@ -1850,6 +1863,7 @@ document.addEventListener('keydown',e=>{
     inp.value=''; render(); toast(`${key}: "${v}" added`);
     return;
   }
+  if(e.key==='Escape'&&TOPOZ){ TOPOZ=false; render(); return; }
   if(e.key==='Escape'&&PEEK){ PEEK=null; render(); return; }
   if((e.metaKey||e.ctrlKey)&&(e.key==='s'||e.key==='S')){ e.preventDefault(); saveHtml(e.shiftKey); }
 });

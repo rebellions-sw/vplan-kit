@@ -105,14 +105,14 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   on its own. The `Refresh` button is the one exception — it renumbers `F##`/`VI###` to match list order
   and rewrites every reference (`feature_refs`, `accepted_as`, active filters) from a map captured before
   the change. Anything outside this file that cites an id (a ticket, a commit message) will not follow.
-- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`) is not persisted** — a saved file always reopens
+- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `TOPO`, `TOPOZ`) is not persisted** — a saved file always reopens
   on the default tab. `test/export.spec.js` asserts this.
 
 ### Schema (`vplan/1.0`)
 
 | key | |
 |---|---|
-| `meta` | IP name, `topology` (an SVG string the plan carries — rendered as a fold under Input Source, sanitised on every render; see the invariant below), the Input Source block — `uarch` (URL of the spec the plan was written against; the top bar links to it), `ref_model` (path to the reference model) and `csr` (path to the SFR/register spreadsheet) — owner, status, `phase` (the plan's own pre-Alpha/Alpha/Beta stage; per-item targets live on `items[].phase`), last_updated. Edited in the top bar. |
+| `meta` | IP name, `topology` (an SVG string the plan carries — rendered as a fold under Input Source, sanitised on every render; clicking the drawing opens it full-screen (`TOPOZ`), Esc or a click closes it; see the invariant below), the Input Source block — `uarch` (URL of the spec the plan was written against; the top bar links to it), `ref_model` (path to the reference model) and `csr` (path to the SFR/register spreadsheet) — owner, status, `phase` (the plan's own pre-Alpha/Alpha/Beta stage; per-item targets live on `items[].phase`), last_updated. Edited in the top bar. |
 | `features[]` | **what** must be verified — `category`, `name`, `description`, `priority`, `status`, `notes`, and `related_refs[]`, a one-way link to features whose category is `command` (`REL_CAT` in the renderer). Its "Related to" half is rendered only on rows that are NOT `command` — a command row is what the others point at. Those chips show the command's NAME and are plain text; the verification chips (`Verified by`, `Link to`) show ids and open the peek drawer. `F##` |
 | `items[]` | **verification items** — what must hold for a feature to be true, one judgeable claim each, with `oracle` (what the result is compared against — the basis for calling it right), `report` (how a violation is surfaced, e.g. a uvm_error on the offending request), `judged_by` (SOM-VIP / IP-VIP / sva / test/seq / scoreboard / ref-model) and the `phase` it is due in (pre-Alpha / Alpha / Beta). `VI###` |
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
