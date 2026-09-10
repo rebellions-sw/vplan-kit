@@ -19,7 +19,7 @@ async function seedAudits(page) {
       card('A001'),
       card('A002', { finding: 'mismatch', target: 'F02', fix: { name: 'corrected name', phase: 'Beta' } }),
       card('A003', { finding: 'missing', target: '', fix: { name: 'uncovered behavior', category: 'behavior' } }),
-      card('A004', { kind: 'item', target: 'VI001', fix: { oracle: 'compare against ref-model' } }),
+      card('A004', { kind: 'item', target: 'VI001', fix: { oracle: 'compare against ref-model', report: '' } }),
     ];
     render();
   });

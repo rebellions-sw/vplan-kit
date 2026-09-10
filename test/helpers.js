@@ -70,7 +70,7 @@ export async function seed(page) {
       { id: 'F02', category: 'behavior', name: 'second feature', description: 'd2', phase: 'Alpha', status: 'editing', reviewed: false, notes: '' },
     ];
     DATA.items = [
-      { id: 'VI001', category: 'command', name: 'first item', description: '', feature_refs: ['F01'], oracle: 'scoreboard',
+      { id: 'VI001', category: 'command', name: 'first item', description: '', feature_refs: ['F01'], oracle: 'scoreboard', report: '',
         judged_by: ['sva'], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, notes: '' },
     ];
     const card = (sid, name, extra) => Object.assign({

@@ -875,6 +875,7 @@ function sugCard(s,all,kind,what){
           ${kind==='item'
             ? `${field('Link to',cell(`${p}.payload.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'}))}
                ${field('Oracle',cell(`${p}.payload.oracle`,{ph:'what the result is compared against'}))}
+               ${field('Report',cell(`${p}.payload.report`,{ph:'how a violation is surfaced'}))}
                ${field('Judged by',togChips(`${p}.payload.judged_by`,E.judged_by,s.payload&&s.payload.judged_by))}
                ${field('Phase',sel(`${p}.payload.phase`,E.phase))}`
             : field('Phase',sel(`${p}.payload.phase`,E.phase))}
@@ -958,6 +959,7 @@ function peekPane(){
         ${line(isItem?'verifies':'verified by',linked.length?linked.map(id=>`<span class="reflink">${esc(id)}</span>`).join(' '):'')}
         ${line('description',txt(row.description))}
         ${isItem?line('oracle',txt(row.oracle)):''}
+        ${isItem?line('report',txt(row.report)):''}
         ${line('notes',txt(row.notes))}
       </div></div>`;
 }
@@ -975,7 +977,7 @@ const FINDING_WHY={
 const FINDING_BADGE={missing:'b-err',insufficient:'b-warn',mismatch:'b-err'};
 const auditRow=a=>((a.kind||'feature')==='item'?DATA.items:DATA.features).find(r=>r.id===a.target);
 const FIX_LBL={name:'Name',description:'Description',category:'Category',phase:'Phase',
-  status:'Definition',notes:'Notes',oracle:'Oracle',judged_by:'Judged by',
+  status:'Definition',notes:'Notes',oracle:'Oracle',report:'Report',judged_by:'Judged by',
   feature_refs:'Link to',implemented:'Implemented'};
 function auditCard(a,all,kind){
   const i=all.indexOf(a), p=`audits.${i}`;
@@ -1191,6 +1193,8 @@ VIEW.items=()=>`
     <tr class="subrow"><td></td><td></td>
       <td colspan="6">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
+      <td colspan="6">${field('Report',cell(`items.${i}.report`,{cls:'boxed',ph:'how a violation is surfaced — e.g. uvm_error on the offending request'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
       <td colspan="6">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
   </tbody></table></div></div>
   ${sugPanel('item')}
@@ -1208,7 +1212,7 @@ function commonBaseTest(){
   return Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0]||'';
 }
 const TEMPLATE={
-  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
+  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},

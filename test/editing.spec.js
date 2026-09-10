@@ -71,6 +71,9 @@ for (const [tab, arr] of ARRAYS) {
 }
 
 test('a row can be dragged into a new order, and that order is what gets saved', async ({ page, browser }) => {
+  // an item spans five sub-rows: at the default height the first and third rows cannot both be on
+  // screen, and a drag needs source and target visible at once
+  await page.setViewportSize({ width: 1280, height: 1600 });
   await openVplan(page);
   await seed(page);
   await page.evaluate(() => { DATA.items = []; render(); });   // this test builds its own items
@@ -79,7 +82,7 @@ test('a row can be dragged into a new order, and that order is what gets saved',
   for (const [i, name] of [[0, 'first'], [1, 'second'], [2, 'third']]) await setCell(page, `items.${i}.name`, name);
 
   const rows = page.locator('#tabbody tbody tr.row');
-  await rows.nth(2).scrollIntoViewIfNeeded();      // each item spans four rows; the third can sit below the fold
+  await rows.nth(2).scrollIntoViewIfNeeded();
   const box = await rows.nth(2).boundingBox();
   // grab the first row by its grip and drop it below the last one
   await rows.nth(0).locator('.grip').dragTo(rows.nth(2), { targetPosition: { x: 20, y: box.height - 3 } });
@@ -153,8 +156,8 @@ test('Refresh renumbers ids in list order and carries every reference with them'
       { id: 'F02', name: 'b', category: '', description: '', phase: 'pre-Alpha', status: 'editing', reviewed: false, notes: '' },
     ];
     D.items = [
-      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
-      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
+      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
+      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
     ];
     D.suggestions = [{ sid: 'S1', kind: 'feature', status: 'accepted', accepted_as: 'F07', confidence: 'high',
                        created: '2026-08-28', source: {}, rationale: '', payload: {}, reject_reason: '' }];

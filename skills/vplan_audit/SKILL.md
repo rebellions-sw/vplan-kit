@@ -52,7 +52,8 @@ d = json.loads(s[i+len(tag):j])
    - Does the source support it at all? (no → `mismatch`, or `hallucinated`-worthy)
    - Does the source say something different — a value, a name, a condition? (→ `mismatch`)
    - Could a verification engineer act on it as written? An item needs a judgeable claim and a real
-     `oracle`; a feature needs a description that says what correct means. (no → `insufficient`)
+     `oracle` (what it is compared against); a feature needs a description that says what correct
+     means. (no → `insufficient`)
    - For a feature: is any item actually verifying it? (no → `missing` item card)
 6. **`audits[]` holds only open findings.** Both buttons consume the card: **Accept** applies the fix
    to the row and deletes the card, **Decline** deletes it unapplied. The inbox therefore says what is

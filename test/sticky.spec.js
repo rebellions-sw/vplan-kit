@@ -10,7 +10,7 @@ async function manyRows(page) {
       DATA.features.push({ id: 'F' + String(n + 10), category: 'behavior', name: 'row ' + n,
         description: '', phase: 'Alpha', status: 'editing', reviewed: false, notes: '' });
       DATA.items.push({ id: 'VI' + String(n + 100), category: 'behavior', name: 'item ' + n,
-        description: '', feature_refs: [], oracle: '', judged_by: [],
+        description: '', feature_refs: [], oracle: '', report: '', judged_by: [],
         status: 'editing', phase: 'Alpha', implemented: 'todo', reviewed: false, notes: '' });
     }
     render();
