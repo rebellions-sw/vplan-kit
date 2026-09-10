@@ -113,8 +113,10 @@ body{
 .topo-head > b{font-size:12px;font-weight:650}
 .topo-head > .hint{margin-left:auto}
 .topo-body{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;background:var(--panel);
-  padding:12px;overflow-x:auto}
-.topo-body svg{display:block;max-width:100%;height:auto;min-width:900px}
+  padding:12px;overflow:auto;max-height:56vh}
+/* a diagram is reference, not the page: hold it to a readable width and let the box scroll rather
+   than letting a wide drawing push the tables off the screen */
+.topo-body svg{display:block;width:min(100%,700px);min-width:520px;height:auto;margin:0 auto}
 @media print{.topo-body{break-inside:avoid}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
 .srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
