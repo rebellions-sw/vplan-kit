@@ -128,3 +128,41 @@ test('a snapshot can zoom too — looking is not editing', async ({ page }) => {
   await page.locator('.topo-body svg').click();
   await expect(page.locator('.topo-lens svg')).toHaveCount(1);
 });
+
+const ARCH = '<svg viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="116" height="36"/><text x="10" y="26">DUT</text></svg>';
+
+test('the plan carries two drawings: topology, then DUT architecture', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(([t, a]) => { DATA.meta.topology = t; DATA.meta.architecture = a; render(); }, [SVG, ARCH]);
+
+  const heads = page.locator('[data-act="topo"]');
+  await expect(heads).toHaveCount(2);
+  await expect(heads.nth(0)).toContainText('Testbench topology');
+  await expect(heads.nth(1)).toContainText('DUT architecture');
+
+  // each fold opens on its own
+  await heads.nth(1).click();
+  await expect(page.locator('.topo-body')).toHaveCount(1);
+  expect(await page.locator('.topo-body svg text').first().textContent()).toBe('DUT');
+  await heads.nth(0).click();
+  await expect(page.locator('.topo-body')).toHaveCount(2);
+
+  // and only one drawing is ever blown up at a time
+  await page.locator('.topo-body').nth(0).click();
+  await expect(page.locator('.topo-lens')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await page.locator('.topo-body').nth(1).click();
+  const lens = page.locator('.topo-lens');
+  await expect(lens).toHaveCount(1);
+  expect(await lens.locator('svg text').first().textContent()).toBe('DUT');
+});
+
+test('a drawing the plan does not carry shows no fold', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(a => { DATA.meta.architecture = a; render(); }, ARCH);
+  const heads = page.locator('[data-act="topo"]');
+  await expect(heads).toHaveCount(1);
+  await expect(heads.nth(0)).toContainText('DUT architecture');
+});

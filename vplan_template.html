@@ -501,8 +501,11 @@ const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
-let TOPO = false;            // is the testbench-topology fold open
-let TOPOZ = false;           // ...and is the drawing itself open full-screen (click it)
+/* The plan carries drawings in meta — a testbench topology and the DUT's own architecture. Each is
+   a fold of its own; DIA holds which are open and DIAZ which single one is blown up full-screen. */
+const DIAGRAMS=[['topology','Testbench topology'],['architecture','DUT architecture']];
+const DIA = new Set();       // meta keys whose fold is open
+let DIAZ = null;             // the meta key currently open full-screen (click the drawing)
 let OPEN = new Set();          // expanded testcase ids
 let DIRTY = false;
 
@@ -980,18 +983,20 @@ function sanitizeSvg(src){
   root.removeAttribute('height');
   return root.outerHTML;
 }
-function topoBlock(){
-  const svg=sanitizeSvg(DATA.meta&&DATA.meta.topology);
-  if(!svg) return '';
+function diagramBlock(key,title){
+  const svg=sanitizeSvg(DATA.meta&&DATA.meta[key]);
+  if(!svg) return '';                       // a plan that carries no such drawing shows no fold
+  const open=DIA.has(key), big=open&&DIAZ===key;
   return `<div class="topo">
-    <button class="topo-head" data-act="topo"><span class="caret">${TOPO?'▾':'▸'}</span>
-      <b>Testbench topology</b><span class="hint">${TOPO?'그림을 클릭하면 크게 봅니다':'클릭하면 펼쳐집니다'}</span></button>
-    ${TOPO?`<div class="topo-body" data-act="topo-zoom" title="클릭하면 크게 봅니다">${svg}</div>`:''}
-    ${TOPO&&TOPOZ?`<div class="topo-lens" data-act="topo-zoom" role="dialog" aria-label="Testbench topology">
+    <button class="topo-head" data-act="topo" data-k="${esc(key)}"><span class="caret">${open?'▾':'▸'}</span>
+      <b>${esc(title)}</b><span class="hint">${open?'그림을 클릭하면 크게 봅니다':'클릭하면 펼쳐집니다'}</span></button>
+    ${open?`<div class="topo-body" data-act="topo-zoom" data-k="${esc(key)}" title="클릭하면 크게 봅니다">${svg}</div>`:''}
+    ${big?`<div class="topo-lens" data-act="topo-zoom" data-k="${esc(key)}" role="dialog" aria-label="${esc(title)}">
       <div class="topo-lens-fig">${svg}</div>
-      <button class="btn sm topo-lens-x" data-act="topo-zoom" title="닫기 (Esc)">✕</button></div>`:''}
+      <button class="btn sm topo-lens-x" data-act="topo-zoom" data-k="${esc(key)}" title="닫기 (Esc)">✕</button></div>`:''}
   </div>`;
 }
+function topoBlock(){ return DIAGRAMS.map(([k,t])=>diagramBlock(k,t)).join(''); }
 
 /* ---- peek drawer (read a linked row without leaving the one you are on) --- */
 /* Read-only on purpose: editing the same row in two places at once would need the caret handling
@@ -1750,8 +1755,13 @@ document.addEventListener('click',e=>{
     if(c&&c.id){ const m=String(c.id).match(/^([A-Za-z_]+)(\d+)$/); c.id = m? m[1]+String(+m[2]+1).padStart(m[2].length,'0')+'_copy' : c.id+'_copy'; }
     arr.splice(i+1,0,c); markDirty(); render(); return;
   }
-  if(act==='topo'){ TOPO=!TOPO; TOPOZ=false; render(); return; }
-  if(act==='topo-zoom'){ TOPOZ=!TOPOZ; render(); return; }
+  if(act==='topo'){
+    const k=b.dataset.k;
+    DIA.has(k)?DIA.delete(k):DIA.add(k);
+    if(DIAZ===k) DIAZ=null;                 // folding a drawing away takes its zoom with it
+    render(); return;
+  }
+  if(act==='topo-zoom'){ const k=b.dataset.k; DIAZ=DIAZ===k?null:k; render(); return; }
   if(act==='peek'){ PEEK={kind:b.dataset.peek,id:b.dataset.id}; render(); return; }
   if(act==='peek-close'){ PEEK=null; render(); return; }
   /* Open ↗ takes you to the row itself: switch tabs, close the drawer, then bring the row into view
@@ -1873,7 +1883,7 @@ document.addEventListener('keydown',e=>{
     inp.value=''; render(); toast(`${key}: "${v}" added`);
     return;
   }
-  if(e.key==='Escape'&&TOPOZ){ TOPOZ=false; render(); return; }
+  if(e.key==='Escape'&&DIAZ){ DIAZ=null; render(); return; }
   if(e.key==='Escape'&&PEEK){ PEEK=null; render(); return; }
   if((e.metaKey||e.ctrlKey)&&(e.key==='s'||e.key==='S')){ e.preventDefault(); saveHtml(e.shiftKey); }
 });
