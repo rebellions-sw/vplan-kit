@@ -98,21 +98,21 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   list IS its feedback, so it re-renders per keystroke and restores focus and caret by hand — it is a
   plain `<input>` (where the caret is a number), never a `contenteditable`.
 - **`esc()` everything interpolated into HTML.** Values are user text and may contain `<`. The single
-  exception is `meta.topology`, a diagram that has to be markup: it goes through `sanitizeSvg()` on
+  exception is the `meta` diagrams (`topology`, `architecture`), which have to be markup: each goes through `sanitizeSvg()` on
   every render — an element allowlist, no `on*` handlers, and `href` only as a `#` same-document
   reference. A plan file travels between people, so the sanitiser runs on read, not on write.
 - **IDs are stable primary keys.** `nextId()` continues from the highest existing one; nothing renumbers
   on its own. The `Refresh` button is the one exception — it renumbers `F##`/`VI###` to match list order
   and rewrites every reference (`feature_refs`, `accepted_as`, active filters) from a map captured before
   the change. Anything outside this file that cites an id (a ticket, a commit message) will not follow.
-- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `TOPO`, `TOPOZ`) is not persisted** — a saved file always reopens
+- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `DIA`, `DIAZ`) is not persisted** — a saved file always reopens
   on the default tab. `test/export.spec.js` asserts this.
 
 ### Schema (`vplan/1.0`)
 
 | key | |
 |---|---|
-| `meta` | IP name, `topology` (an SVG string the plan carries — rendered as a fold under Input Source, sanitised on every render; clicking the drawing opens it full-screen (`TOPOZ`), Esc or a click closes it; see the invariant below), the Input Source block — `uarch` (URL of the spec the plan was written against; the top bar links to it), `ref_model` (path to the reference model) and `csr` (path to the SFR/register spreadsheet) — owner, status, `phase` (the plan's own pre-Alpha/Alpha/Beta stage; per-item targets live on `items[].phase`), last_updated. Edited in the top bar. |
+| `meta` | IP name, `topology` and `architecture` (SVG strings the plan carries — the testbench diagram and the DUT's own block diagram, each a fold under Input Source in `DIAGRAMS` order, sanitised on every render; clicking a drawing opens it full-screen (`DIAZ`), Esc or a click closes it; a key the plan does not carry renders no fold; see the invariant below), the Input Source block — `uarch` (URL of the spec the plan was written against; the top bar links to it), `ref_model` (path to the reference model) and `csr` (path to the SFR/register spreadsheet) — owner, status, `phase` (the plan's own pre-Alpha/Alpha/Beta stage; per-item targets live on `items[].phase`), last_updated. Edited in the top bar. |
 | `features[]` | **what** must be verified — `category`, `name`, `description`, `priority`, `status`, `reviewed` (the **Covered** column), `notes`, and `related_refs[]`, a one-way link to features whose category is `command` (`REL_CAT` in the renderer). Its "Related to" half is rendered only on rows that are NOT `command` — a command row is what the others point at. Those chips show the command's NAME and are plain text; the verification chips (`Verified by`, `Link to`) show ids and open the peek drawer. `F##` |
 | `items[]` | **verification items** — what must hold for a feature to be true, one judgeable claim each. No `category` and no `reviewed`: those two are feature columns, and a plan that still carries them on an item is stripped on load (`stripItem`). With `oracle` (what the result is compared against — the basis for calling it right), `report` (how a violation is surfaced, e.g. a uvm_error on the offending request), `judged_by` (SOM-VIP / IP-VIP / sva / test/seq / scoreboard / ref-model) and the `phase` it is due in (pre-Alpha / Alpha / Beta). `VI###` |
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
