@@ -1363,8 +1363,12 @@ function lint(){
   const due=r=>{ const i=PH.indexOf(r.phase); return i>=0 && now>=0 && i<=now; };
 
   /* every stored field must hold something — an empty cell or an unpicked select is unfinished work.
-     `reviewed` is a boolean with its own rule above, so it is not counted as "empty" here. */
-  const blanks=r=>Object.keys(r).filter(k=>k!=='reviewed' &&
+     Three exceptions, or the warning counts rows that have nothing left to do: `reviewed` is a
+     boolean with its own rule above, `notes` is a free-form margin the plan never asks for, and a
+     command row's `related_refs` is not even rendered — a command is what the OTHER rows point at. */
+  const OPTIONAL=new Set(['reviewed','notes']);
+  const blanks=r=>Object.keys(r).filter(k=>!OPTIONAL.has(k) &&
+    !(k==='related_refs' && r.category===REL_CAT) &&
     (r[k]==null || r[k]==='' || (Array.isArray(r[k]) && !r[k].length)));
 
   const covered=new Set(DATA.items.flatMap(it=>it.feature_refs||[]));

@@ -74,3 +74,20 @@ test('pending suggestions are surfaced as a warning so they are not forgotten', 
   await patch(page, D => { D.suggestions[0].status = 'pending'; });
   expect(matching(await lint(page), /^WARN .*suggestions pending review/).length).toBe(1);
 });
+
+test('an empty note is not unfinished work, and a command row needs no Related to', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.features.push({ id: 'F80', category: 'behavior', name: 'fully filled in', description: 'd',
+                      related_refs: ['F81'], phase: 'Beta', status: 'finalized', reviewed: true, notes: '' });
+    D.features.push({ id: 'F81', category: 'command', name: 'INV', description: 'd',
+                      related_refs: [], phase: 'Beta', status: 'finalized', reviewed: true, notes: '' });
+    D.features.push({ id: 'F82', category: 'behavior', name: 'no link', description: 'd',
+                      related_refs: [], phase: 'Beta', status: 'finalized', reviewed: true, notes: 'n' });
+  });
+  const gap = matching(await lint(page), /some fields are still empty/);
+  expect(gap[0]).not.toContain('F80');    // only its note is empty
+  expect(gap[0]).not.toContain('F81');    // a command is what others point at
+  expect(gap[0]).toContain('F82');        // a behavior row with no command behind it still counts
+});
