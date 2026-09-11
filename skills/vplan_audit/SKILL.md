@@ -47,7 +47,8 @@ d = json.loads(s[i+len(tag):j])
    Notion URL, else WebFetch; the MAS, primary truth), `ref_model` (local path — read the code),
    `csr` (local .xlsx — read it; registers and fields are `parameter`-category truth). If all three are
    blank, stop: with nothing to quote, no finding can be checked.
-5. **Audit every row in `features[]` and `items[]`** — the whole plan, whatever its Confirmed state.
+5. **Audit every row in `features[]` and `items[]`** — the whole plan, whatever a feature's Verified
+   box says. An item row has no `category` and no Verified box, so never propose either in a `fix`.
    For each row ask, in this order:
    - Does the source support it at all? (no → `mismatch`, or `hallucinated`-worthy)
    - Does the source say something different — a value, a name, a condition? (→ `mismatch`)

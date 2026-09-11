@@ -156,8 +156,8 @@ test('Refresh renumbers ids in list order and carries every reference with them'
       { id: 'F02', name: 'b', category: '', description: '', phase: 'pre-Alpha', status: 'editing', reviewed: false, notes: '' },
     ];
     D.items = [
-      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
-      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', reviewed: false, category: '', description: '', notes: '' },
+      { id: 'VI009', name: 'x', feature_refs: ['F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', description: '', notes: '' },
+      { id: 'VI003', name: 'y', feature_refs: ['F02', 'F07'], oracle: '', report: '', judged_by: [], status: 'editing', phase: 'pre-Alpha', implemented: 'todo', description: '', notes: '' },
     ];
     D.suggestions = [{ sid: 'S1', kind: 'feature', status: 'accepted', accepted_as: 'F07', confidence: 'high',
                        created: '2026-08-28', source: {}, rationale: '', payload: {}, reject_reason: '' }];
@@ -171,4 +171,36 @@ test('Refresh renumbers ids in list order and carries every reference with them'
   expect(d.items[0].feature_refs).toEqual(['F01']);
   expect(d.items[1].feature_refs).toEqual(['F02', 'F01']);
   expect(d.suggestions[0].accepted_as).toBe('F01');
+});
+
+test('an item has no Category and no Verified box; a feature keeps both', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+
+  // the header is small-caps via CSS, so innerText comes back upper-cased
+  const heads = () => page.$$eval('.panel table thead th', els => els.map(e => e.innerText.trim().split('\n')[0]));
+  await page.click('[data-tab="items"]');
+  const itemCols = await heads();
+  expect(itemCols).not.toContain('CATEGORY');
+  expect(itemCols).not.toContain('VERIFIED');
+  expect(await page.locator('[data-path^="items."][data-path$=".reviewed"]').count()).toBe(0);
+  expect(await page.locator('[data-path^="items."][data-path$=".category"]').count()).toBe(0);
+
+  await page.click('[data-tab="features"]');
+  const featureCols = await heads();
+  expect(featureCols).toContain('CATEGORY');
+  expect(featureCols).toContain('VERIFIED');          // the column used to read "Confirmed"
+  expect(await page.locator('[data-path^="features."][data-path$=".reviewed"]').count()).toBeGreaterThan(0);
+});
+
+test('a plan written before the columns went loses those two keys on read', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  // the migration runs at parse time, so reach the same code the way a reload would
+  const left = await page.evaluate(() => {
+    const it = { id: 'VI500', name: 'old row', category: 'command', reviewed: true, notes: '' };
+    stripItem(it);
+    return Object.keys(it);
+  });
+  expect(left).toEqual(['id', 'name', 'notes']);
 });

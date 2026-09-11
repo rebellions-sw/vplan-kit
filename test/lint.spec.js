@@ -44,7 +44,7 @@ test('a feature claimed by a verification item is no longer reported as uncovere
   await patch(page, D => {
     D.meta.phase = 'pre-Alpha';
     D.features.push({ id: 'F92', name: 'covered', phase: 'pre-Alpha', status: 'finalized', reviewed: true });
-    D.items.push({ id: 'VI900', name: 'judges F92', feature_refs: ['F92'], oracle: 'scoreboard', status: 'finalized', phase: 'pre-Alpha', reviewed: true });
+    D.items.push({ id: 'VI900', name: 'judges F92', feature_refs: ['F92'], oracle: 'scoreboard', status: 'finalized', phase: 'pre-Alpha' });
   });
   const lines = await lint(page);
   expect(matching(lines, /F92/)).toHaveLength(0);
@@ -100,9 +100,9 @@ test('a row due in a later phase is not warned about at all', async ({ page }) =
     D.meta.phase = 'pre-Alpha';
     D.features.push({ id: 'F85', category: '', name: 'beta work, barely started', description: '',
                       related_refs: [], phase: 'Beta', status: 'not started', reviewed: false, notes: '' });
-    D.items.push({ id: 'VI85', category: '', name: '', description: '', feature_refs: [], oracle: '',
+    D.items.push({ id: 'VI85', name: '', description: '', feature_refs: [], oracle: '',
                    report: '', judged_by: [], status: 'not started', phase: 'Beta',
-                   implemented: 'todo', reviewed: false, notes: '' });
+                   implemented: 'todo', notes: '' });
   });
   const lines = await lint(page);
   expect(matching(lines, /F85|VI85/)).toHaveLength(0);      // empty, unlinked, unfinished — and not yet due

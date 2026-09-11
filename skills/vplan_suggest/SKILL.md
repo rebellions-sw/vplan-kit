@@ -76,9 +76,9 @@ d = json.loads(s[i+len(tag):j])
 }
 ```
 
-   For `kind: "item"` the payload mirrors an `items[]` row instead (minus `id`/`reviewed`):
-   `name, category, description, feature_refs, oracle, report, judged_by, status, phase, implemented,
-   notes` — `oracle` is what the result is compared against, `report` is how a violation is surfaced. `feature_refs` may only cite **existing** `F##` ids (lint checks every
+   For `kind: "item"` the payload mirrors an `items[]` row instead (minus `id`):
+   `name, description, feature_refs, oracle, report, judged_by, status, phase, implemented,
+   notes` — an item has no `category` and no Confirmed box; those are feature columns — `oracle` is what the result is compared against, `report` is how a violation is surfaced. `feature_refs` may only cite **existing** `F##` ids (lint checks every
    cross-reference) — cite the feature a card verifies, or leave it `[]`. Enum values come from
    `$enums` in the data block — read them, never invent values.
 8. **Write and verify**: re-serialize the data block (same indent-2 style), then read the file back

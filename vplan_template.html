@@ -493,6 +493,11 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
 "use strict";
 
 let DATA = JSON.parse(document.getElementById('vplan-data').textContent);
+/* Verification items dropped Category and Confirmed. lint() counts every key a row stores, so a
+   plan written before that would report two fields nobody can fill — take them out on read. */
+const ITEM_DROPPED=['category','reviewed'];
+const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
+(DATA.items||[]).forEach(stripItem);
 let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
@@ -715,7 +720,7 @@ function rowGrip(arrPath,i){
    ripple through the schema and every existing plan for a label's sake. */
 function confirmCk(arrPath,i){
   const reviewed=((get(arrPath)||[])[i]||{}).reviewed;
-  return `<input type="checkbox" class="chk rowsel"${isSnapshot()?' disabled':''} data-path="${arrPath}.${i}.reviewed"${reviewed?' checked':''} title="확정">`;
+  return `<input type="checkbox" class="chk rowsel"${isSnapshot()?' disabled':''} data-path="${arrPath}.${i}.reviewed"${reviewed?' checked':''} title="검증 완료">`;
 }
 /* dup/del/move live under the ID value in the Features / Verification Items tables. `vi` is the row's
    place in the VISIBLE list and `n` its length — the ends are disabled rather than silently doing
@@ -812,7 +817,7 @@ VIEW.features=()=>{
     ${headSearch('features')}</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th style="width:26px"></th>${sortTh('ID','features','id','width:52px')}${filterTh(catHead(),'features','category','category','width:170px')}<th>Feature</th>${filterTh('Phase','features','phase','phase','width:150px')}
-    ${filterTh('Definition','features','status','status','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
+    ${filterTh('Definition','features','status','status','width:150px')}<th class="th-confirm" style="width:82px">Verified</th>
   </tr></thead><tbody>
   ${rowsOf('features').map(({r:f,i},vi,vis_)=>{
     const vis=DATA.items.filter(it=>(it.feature_refs||[]).includes(f.id)).map(it=>it.id);
@@ -894,7 +899,7 @@ function sugCard(s,all,kind,what){
 
         <div class="sug-wide">${field('Description',cell(`${p}.payload.description`))}</div>
         <div class="sug-fields">
-          ${field('Category',sel(`${p}.payload.category`,E.category))}
+          ${kind==='item'?'':field('Category',sel(`${p}.payload.category`,E.category))}
           ${kind==='item'
             ? `${field('Link to',cell(`${p}.payload.feature_refs`,{kind:'csv',cls:'mono',ph:'F01'}))}
                ${field('Oracle',cell(`${p}.payload.oracle`,{ph:'what the result is compared against'}))}
@@ -1016,7 +1021,7 @@ function peekPane(){
       </div>
       <div class="peek-body">
         <div class="peek-name">${esc(row.name)||'<span class="hint">(이름 없음)</span>'}</div>
-        ${line('category',txt(row.category))}
+        ${isItem?'':line('category',txt(row.category))}
         ${line('phase',txt(row.phase))}
         ${isItem?line('implemented',txt(row.implemented)):''}
         ${isItem?line('judged by',txt(row.judged_by)):''}
@@ -1236,30 +1241,28 @@ VIEW.items=()=>`
     ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}
     ${headSearch('items')}</div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}${filterTh(catHead(),'items','category','category','width:170px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
-    ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}<th class="th-confirm" style="width:82px">Confirmed</th>
+    <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
+    ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}
   </tr></thead><tbody>
   ${rowsOf('items').map(({r:it,i},vi,vis_)=>`<tr class="row">
     <td class="gripcell">${rowGrip('items',i)}</td>
     <td>${cell(`items.${i}.id`,{cls:'id'})}</td>
-    <td>${sel(`items.${i}.category`,E.category)}</td>
     <td>${cell(`items.${i}.name`)}</td>
     <td>${sel(`items.${i}.phase`,E.phase,{cls:'phase'})}</td>
     <td>${sel(`items.${i}.status`,E.status)}</td>
-    <td>${sel(`items.${i}.implemented`,E.implemented)}</td>
-    <td class="actions">${confirmCk('items',i)}</td></tr>
+    <td>${sel(`items.${i}.implemented`,E.implemented)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div></td>
       <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
         ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td colspan="4">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
+      <td colspan="2">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
+      <td colspan="4">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
+      <td colspan="4">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${field('Report',cell(`items.${i}.report`,{cls:'boxed',ph:'how a violation is surfaced — e.g. uvm_error on the offending request'}))}</td></tr>
+      <td colspan="4">${field('Report',cell(`items.${i}.report`,{cls:'boxed',ph:'how a violation is surfaced — e.g. uvm_error on the offending request'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="6">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
+      <td colspan="4">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
   </tbody></table></div></div>
   ${sugPanel('item')}
   ${auditPanel('item')}`;
@@ -1276,7 +1279,7 @@ function commonBaseTest(){
   return Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0]||'';
 }
 const TEMPLATE={
-  item:a=>({id:nextId(a,'VI',3),category:'',name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',reviewed:false,notes:''}),
+  item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
@@ -1325,12 +1328,11 @@ function lint(){
   /* which phase made these due is on the panel head, so it is not repeated on every line */
   const unCov   =grp('err','feature','no verification item is linked');
   const unDef   =grp('err','feature','definition is not finalized');
-  const unRevF  =grp('err','feature','Confirmed is not ticked');
+  const unRevF  =grp('err','feature','Verified is not ticked');
   const gapF    =grp('warn','feature','some fields are still empty');
   const itemNoF =grp('warn','item','no feature is linked');
   const itemUnD =grp('err','item','definition is not finalized');
   const itemUnI =grp('err','item','implemented is not done');
-  const unRevI  =grp('err','item','Confirmed is not ticked');
   const gapI    =grp('warn','item','some fields are still empty');
   const tcNoCls =grp('err','plan','testcase has no uvm.test_class');
   const tcNoChk =grp('err','plan','testcase has no checks');
@@ -1398,7 +1400,6 @@ function lint(){
     if(!(it.feature_refs||[]).length) itemNoF.ids.push(it.id);
     if(it.status!=='finalized')       itemUnD.ids.push(`${it.id}(${it.status||'—'})`);
     if(it.implemented!=='done')       itemUnI.ids.push(`${it.id}(${it.implemented||'—'})`);
-    if(!it.reviewed)                  unRevI.ids.push(it.id);
   });
   DATA.items.forEach(it=>{ if(due(it) && blanks(it).length) gapI.ids.push(it.id); });
 
@@ -1771,6 +1772,7 @@ document.addEventListener('click',e=>{
     const arr=kind==='item'?DATA.items:DATA.features;
     const f=TEMPLATE[kind](arr);
     Object.assign(f,s.payload||{});
+    if(kind==='item') stripItem(f);            // a card may still carry Category from an older skill
     f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);   // fresh ID — never collide
     f.status='editing';        // a card arrives with description, quote and rationale — already past 'not started'
     ['judged_by','feature_refs','related_refs'].forEach(k=>{ if(typeof f[k]==='string') f[k]=f[k].split(/[,\s|]+/).filter(Boolean); });
@@ -1808,6 +1810,7 @@ document.addEventListener('click',e=>{
     if((a.finding||'')==='missing'){
       const f=TEMPLATE[kind](arr);
       Object.assign(f,fix);
+      if(kind==='item') stripItem(f);
       f.id=kind==='item'?nextId(DATA.items,'VI',3):nextId(DATA.features,'F',2);
       f.status='editing';
       arr.push(f);
@@ -1818,6 +1821,7 @@ document.addEventListener('click',e=>{
     const row=arr.find(r=>r.id===a.target);
     if(!row){ toast(`${a.target||'대상 없음'} 을(를) 찾을 수 없습니다 — 적용하지 않았습니다`); return; }
     Object.assign(row,fix);
+    if(kind==='item') stripItem(row);
     drop(a);
     markDirty(); render(); toast(`${row.id} updated`);
     return;
