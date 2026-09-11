@@ -79,6 +79,7 @@ test('an empty note is not unfinished work, and a command row needs no Related t
   await openVplan(page);
   await seed(page);
   await patch(page, D => {
+    D.meta.phase = 'Beta';                 // these rows are due, so a blank on them is a finding
     D.features.push({ id: 'F80', category: 'behavior', name: 'fully filled in', description: 'd',
                       related_refs: ['F81'], phase: 'Beta', status: 'finalized', reviewed: true, notes: '' });
     D.features.push({ id: 'F81', category: 'command', name: 'INV', description: 'd',
@@ -90,4 +91,19 @@ test('an empty note is not unfinished work, and a command row needs no Related t
   expect(gap[0]).not.toContain('F80');    // only its note is empty
   expect(gap[0]).not.toContain('F81');    // a command is what others point at
   expect(gap[0]).toContain('F82');        // a behavior row with no command behind it still counts
+});
+
+test('a row due in a later phase is not warned about at all', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'pre-Alpha';
+    D.features.push({ id: 'F85', category: '', name: 'beta work, barely started', description: '',
+                      related_refs: [], phase: 'Beta', status: 'not started', reviewed: false, notes: '' });
+    D.items.push({ id: 'VI85', category: '', name: '', description: '', feature_refs: [], oracle: '',
+                   report: '', judged_by: [], status: 'not started', phase: 'Beta',
+                   implemented: 'todo', reviewed: false, notes: '' });
+  });
+  const lines = await lint(page);
+  expect(matching(lines, /F85|VI85/)).toHaveLength(0);      // empty, unlinked, unfinished — and not yet due
 });

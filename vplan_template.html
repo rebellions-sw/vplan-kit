@@ -1378,7 +1378,9 @@ function lint(){
     if(f.status!=='finalized') unDef.ids.push(`${f.id}(${f.status||'—'})`);
     if(!f.reviewed) unRevF.ids.push(f.id);
   });
-  DATA.features.forEach(f=>{ if(blanks(f).length) gapF.ids.push(f.id); });
+  /* a blank field is only unfinished work once the row's phase has arrived — the same rule the
+     errors above follow. A Beta row half-written during pre-Alpha is a draft, not a finding. */
+  DATA.features.forEach(f=>{ if(due(f) && blanks(f).length) gapF.ids.push(f.id); });
 
   /* a related-to link must resolve, and must still name a command feature: the category can be edited
      after the link was made, and a link to a behavior row is a mistake worth showing. */
@@ -1398,7 +1400,7 @@ function lint(){
     if(it.implemented!=='done')       itemUnI.ids.push(`${it.id}(${it.implemented||'—'})`);
     if(!it.reviewed)                  unRevI.ids.push(it.id);
   });
-  DATA.items.forEach(it=>{ if(blanks(it).length) gapI.ids.push(it.id); });
+  DATA.items.forEach(it=>{ if(due(it) && blanks(it).length) gapI.ids.push(it.id); });
 
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
