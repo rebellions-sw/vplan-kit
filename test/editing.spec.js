@@ -173,7 +173,7 @@ test('Refresh renumbers ids in list order and carries every reference with them'
   expect(d.suggestions[0].accepted_as).toBe('F01');
 });
 
-test('an item has no Category and no Verified box; a feature keeps both', async ({ page }) => {
+test('an item has no Category and no Covered box; a feature keeps both', async ({ page }) => {
   await openVplan(page);
   await seed(page);
 
@@ -182,14 +182,14 @@ test('an item has no Category and no Verified box; a feature keeps both', async 
   await page.click('[data-tab="items"]');
   const itemCols = await heads();
   expect(itemCols).not.toContain('CATEGORY');
-  expect(itemCols).not.toContain('VERIFIED');
+  expect(itemCols).not.toContain('COVERED');
   expect(await page.locator('[data-path^="items."][data-path$=".reviewed"]').count()).toBe(0);
   expect(await page.locator('[data-path^="items."][data-path$=".category"]').count()).toBe(0);
 
   await page.click('[data-tab="features"]');
   const featureCols = await heads();
   expect(featureCols).toContain('CATEGORY');
-  expect(featureCols).toContain('VERIFIED');          // the column used to read "Confirmed"
+  expect(featureCols).toContain('COVERED');           // this column used to read "Confirmed"
   expect(await page.locator('[data-path^="features."][data-path$=".reviewed"]').count()).toBeGreaterThan(0);
 });
 
