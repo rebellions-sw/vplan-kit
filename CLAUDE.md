@@ -108,7 +108,7 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   on its own. The `Refresh` button is the one exception — it renumbers `F##`/`VI###` to match list order
   and rewrites every reference (`feature_refs`, `accepted_as`, active filters) from a map captured before
   the change. Anything outside this file that cites an id (a ticket, a commit message) will not follow.
-- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `DIA`, `DIAZ`, `CMTFOCUS`, `CMTDRAFT`, `CMTOPENONLY`, `CMTMINE`) is not persisted** — a saved file always reopens
+- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `DIA`, `DIAZ`, `CMTFOCUS`, `CMTDRAFT`, `CMTVIEW`) is not persisted** — a saved file always reopens
   on the default tab. `test/export.spec.js` asserts this.
 
 ### Schema (`vplan/1.0`)

@@ -48,26 +48,28 @@ test('a comment lands on the row, in the rail, and in the saved file', async ({ 
   expect(saved.meta.people).toEqual(['jinsu.kim']);
 });
 
-test('resolving hides a thread, and the filters pick out what is mine', async ({ page }) => {
+test('the rail shows open or resolved, one or the other', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await beMe(page, 'nara.cho');
-  await page.evaluate(() => { DATA.meta.people = ['nara.cho', 'jinsu.kim']; render(); });
 
-  await writeComment(page, 'F01', 'to me', ['nara.cho']);
-  await writeComment(page, 'F02', 'to someone else', ['jinsu.kim']);
-  await expect(page.locator('.thread')).toHaveCount(2);
+  await writeComment(page, 'F01', 'still open');
+  await writeComment(page, 'F02', 'about to be resolved');
   await page.click('[data-act="cmt-cancel"]');                    // an open composer pins its thread
+  await expect(page.locator('.thread')).toHaveCount(2);
 
-  await page.click('[data-act="cmt-f-mine"]');                    // @me
+  await page.locator('.thread[data-thread="F02"] [data-act="cmt-resolve"]').click();
+  await expect(page.locator('.thread[data-thread="F02"]')).toHaveCount(0);   // open is the default view
+  await expect(page.locator('.thread[data-thread="F01"]')).toHaveCount(1);
+
+  await page.click('[data-act="cmt-view"][data-view="resolved"]');
+  await expect(page.locator('.thread[data-thread="F01"]')).toHaveCount(0);
+  await expect(page.locator('.thread[data-thread="F02"] .cmt.done')).toHaveCount(1);
+
+  await page.click('[data-act="cmt-view"][data-view="open"]');
   await expect(page.locator('.thread[data-thread="F01"]')).toHaveCount(1);
   await expect(page.locator('.thread[data-thread="F02"]')).toHaveCount(0);
-  await page.click('[data-act="cmt-f-mine"]');
-
-  await page.locator('.thread[data-thread="F01"] [data-act="cmt-resolve"]').click();
-  await expect(page.locator('.thread[data-thread="F01"]')).toHaveCount(0);   // 열린 것만 is on by default
-  await page.click('[data-act="cmt-f-open"]');                               // show everything
-  await expect(page.locator('.thread[data-thread="F01"] .cmt.done')).toHaveCount(1);
+  await expect(page.locator('[data-act="cmt-f-mine"]')).toHaveCount(0);      // the @me filter is gone
 });
 
 test('an open comment is a lint warning; resolving it clears the line', async ({ page }) => {

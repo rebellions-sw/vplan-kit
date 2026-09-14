@@ -566,8 +566,7 @@ let DIAZ = null;             // the meta key currently open full-screen (click t
    message being typed, never DATA — a draft is not the plan) are state. */
 let CMTFOCUS = null;
 let CMTDRAFT = {text:'', to:[]};
-let CMTOPENONLY = true;      // hide resolved threads
-let CMTMINE = false;         // only threads that mention me
+let CMTVIEW = 'open';        // which half of the conversation the rail shows: 'open' | 'resolved'
 let OPEN = new Set();          // expanded testcase ids
 let DIRTY = false;
 
@@ -1072,7 +1071,7 @@ const CMTS=()=>DATA.comments||(DATA.comments=[]);
 const cmtsOf=t=>CMTS().filter(c=>c.target===t);
 const openOf=t=>cmtsOf(t).filter(c=>!c.resolved);
 const meName=()=>String(DATA.meta.me||'').trim();
-const cmtVisible=c=>(!CMTOPENONLY||!c.resolved)&&(!CMTMINE||(c.to||[]).includes(meName()));
+const cmtVisible=c=>CMTVIEW==='open'?!c.resolved:!!c.resolved;
 function cmtBtn(target){
   const n=openOf(target).length, any=cmtsOf(target).length;
   const mine=!!meName()&&openOf(target).some(c=>(c.to||[]).includes(meName()));
@@ -1130,15 +1129,16 @@ function railPane(){
   if(CMTFOCUS&&!targets.includes(CMTFOCUS)) targets.push(CMTFOCUS);
   const vis=targets.filter(t=>t===CMTFOCUS||cmtsOf(t).some(cmtVisible)).sort((a,b)=>rank(a)-rank(b));
   const open=CMTS().filter(c=>!c.resolved).length;
-  const mine=CMTS().filter(c=>!c.resolved&&meName()&&(c.to||[]).includes(meName())).length;
+  const done=CMTS().filter(c=>c.resolved).length;
   return `<div class="rail">
     <div class="rail-head"><b>Comments</b>
       <span class="badge ${open?'b-warn':'b-ok'}">${open} open</span>
-      ${mine?`<span class="badge b-acc" title="나를 태그한 열린 코멘트">@me ${mine}</span>`:''}
       <div class="spacer"></div></div>
     <div class="rail-me"><b>나</b>${cell('meta.me',{cls:'mini',ph:'이름'})}
-      <button class="btn sm${CMTOPENONLY?' primary':''}" data-act="cmt-f-open" title="해결된 코멘트 숨기기">열린 것만</button>
-      <button class="btn sm${CMTMINE?' primary':''}" data-act="cmt-f-mine" title="나를 태그한 것만">@me</button>
+      <button class="btn sm${CMTVIEW==='open'?' primary':''}" data-act="cmt-view" data-view="open"
+        title="아직 해결되지 않은 코멘트">open ${open}</button>
+      <button class="btn sm${CMTVIEW==='resolved'?' primary':''}" data-act="cmt-view" data-view="resolved"
+        title="해결된 코멘트">resolved ${done}</button>
       <div class="spacer"></div><button class="btn sm" data-act="cmt" data-target="plan" title="플랜 전체에 코멘트">+ 플랜</button></div>
     <div class="rail-body">${vis.map(thread).join('')
       ||'<span class="hint">아직 코멘트가 없습니다 — 각 행의 💬 를 누르면 여기에 스레드가 생깁니다.</span>'}</div>
@@ -1965,8 +1965,7 @@ document.addEventListener('click',e=>{
     if(c&&confirm('이 코멘트를 삭제할까요?')){ CMTS().splice(i,1); markDirty(); render(); }
     return;
   }
-  if(act==='cmt-f-open'){ stashDraft(); CMTOPENONLY=!CMTOPENONLY; render(); return; }
-  if(act==='cmt-f-mine'){ stashDraft(); CMTMINE=!CMTMINE; render(); return; }
+  if(act==='cmt-view'){ stashDraft(); CMTVIEW=b.dataset.view==='resolved'?'resolved':'open'; render(); return; }
   if(act==='cmt-goto'){
     const id=b.dataset.target; if(id==='plan') return;
     stashDraft(); TAB=String(id).startsWith('VI')?'items':'features'; render();
