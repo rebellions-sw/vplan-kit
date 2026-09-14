@@ -168,15 +168,6 @@ body{
 .composer textarea:focus{outline:none;border-color:var(--accent)}
 .cmp-to{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:6px 0}
 .cmp-row{display:flex;gap:6px;align-items:center;margin-top:6px}
-/* the row itself carries the mark: a bar down its left edge and a chip under the id */
-tr.row.hascmt > td.gripcell{box-shadow:inset 3px 0 0 var(--accent)}
-tr.row.hadcmt > td.gripcell{box-shadow:inset 3px 0 0 var(--mut);opacity:.9}
-.cmark{display:inline-flex;align-items:center;gap:1px;margin-top:3px;padding:1px 6px 1px 4px;cursor:pointer;
-  border:1px solid var(--accent);border-radius:10px;background:var(--accent-soft);color:var(--accent);
-  font:700 10px var(--mono)}
-.cmark:hover{filter:brightness(.97)}
-.cmark.done{border-color:var(--line);background:var(--mut-bg);color:var(--mut)}
-.cmark.mine{box-shadow:0 0 0 2px var(--accent-soft)}
 .btn.icon.cmt{position:relative;color:var(--mut)}
 .btn.icon.cmt.on{color:var(--accent);border-color:var(--accent)}
 .btn.icon.cmt.mine{background:var(--accent-soft)}
@@ -893,9 +884,9 @@ VIEW.features=()=>{
   ${rowsOf('features').map(({r:f,i},vi,vis_)=>{
     const vis=DATA.items.filter(it=>(it.feature_refs||[]).includes(f.id)).map(it=>it.id);
     const rel=f.related_refs||[];
-    return `<tr class="row${rowCmtCls(f.id)}">
+    return `<tr class="row">
     <td class="gripcell">${rowGrip('features',i)}</td>
-    <td>${cell(`features.${i}.id`,{cls:'id'})}${cmtMark(f.id)}</td>
+    <td>${cell(`features.${i}.id`,{cls:'id'})}</td>
     <td>${sel(`features.${i}.category`,E.category)}</td>
     <td>${cell(`features.${i}.name`)}</td>
     <td>${sel(`features.${i}.phase`,E.phase,{cls:'phase'})}</td>
@@ -1079,21 +1070,10 @@ function cmtBtn(target){
   const n=openOf(target).length, any=cmtsOf(target).length;
   const mine=!!meName()&&openOf(target).some(c=>(c.to||[]).includes(meName()));
   const tip=n?`열린 코멘트 ${n}개`:(any?'해결된 코멘트만 있음':'코멘트 달기');
-  // the count is on the row's own chip; this one is just the way in to writing
   return `<button class="btn icon cmt${n?' on':''}${mine?' mine':''}" data-act="cmt"
-    data-target="${esc(target)}" title="${tip}">💬</button>`;
+    data-target="${esc(target)}" title="${tip}">💬${n?`<span class="cmt-n">${n}</span>`:''}</button>`;
 }
 const rowOfId=id=>(String(id).startsWith('VI')?DATA.items:DATA.features).find(r=>r.id===id);
-/* A thread is only useful if you can see, from the table, which rows have one. An open comment marks
-   the row in accent, a thread that is fully resolved in grey — the conversation happened either way. */
-const rowCmtCls=id=>openOf(id).length?' hascmt':(cmtsOf(id).length?' hadcmt':'');
-function cmtMark(id){
-  const n=openOf(id).length, any=cmtsOf(id).length;
-  if(!any) return '';
-  const mine=!!meName()&&openOf(id).some(c=>(c.to||[]).includes(meName()));
-  return `<button class="cmark${n?'':' done'}${mine?' mine':''}" data-act="cmt" data-target="${esc(id)}"
-    title="${n?`열린 코멘트 ${n}개 — 누르면 레일에서 엽니다`:'해결된 코멘트가 있습니다'}">💬${n?n:'✓'}</button>`;
-}
 function atText(t){ return esc(t).replace(/@([\w.\-가-힣]+)/g,'<span class="at">@$1</span>'); }
 function cmtCard(c,i){
   return `<div class="cmt${c.resolved?' done':''}">
@@ -1409,9 +1389,9 @@ VIEW.items=()=>`
     <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}<th>Item</th>${filterTh('Phase','items','phase','phase','width:150px')}
     ${filterTh('Definition','items','status','status','width:150px')}${filterTh('Implemented','items','implemented','implemented','width:150px')}
   </tr></thead><tbody>
-  ${rowsOf('items').map(({r:it,i},vi,vis_)=>`<tr class="row${rowCmtCls(it.id)}">
+  ${rowsOf('items').map(({r:it,i},vi,vis_)=>`<tr class="row">
     <td class="gripcell">${rowGrip('items',i)}</td>
-    <td>${cell(`items.${i}.id`,{cls:'id'})}${cmtMark(it.id)}</td>
+    <td>${cell(`items.${i}.id`,{cls:'id'})}</td>
     <td>${cell(`items.${i}.name`)}</td>
     <td>${sel(`items.${i}.phase`,E.phase,{cls:'phase'})}</td>
     <td>${sel(`items.${i}.status`,E.status)}</td>
