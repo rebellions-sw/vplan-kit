@@ -129,7 +129,10 @@ body{
 @media print{.topo-body{break-inside:avoid} .topo-lens{display:none!important}}
 
 /* ---- review rail: comments live down the right edge, never on top of the row you are reading --- */
-#app.railed{padding-right:var(--rail-w)}
+/* the rail takes its width out of the page, so give the page that much more to work with before
+   the max-width bites — otherwise the tables are squeezed on exactly the screens that have room */
+#app.railed{padding-right:var(--rail-w);max-width:calc(1400px + var(--rail-w))}
+@media (max-width:1200px){:root{--rail-w:240px}}   /* on a small screen the table needs the pixels more */
 .rail{position:fixed;top:0;right:0;bottom:0;width:var(--rail-w);z-index:55;display:flex;flex-direction:column;
   background:var(--panel-2);border-left:1px solid var(--line)}
 .rail-head{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);
@@ -367,6 +370,9 @@ th > input.newopt:focus{border-color:var(--accent);outline:none}
    The trade is that a window narrower than the table scrolls the page sideways instead of the wrap.
    The offsets are measured, not guessed — --topbar-h / --head-h are written by stickTops(). */
 .panel.stick,.panel.stick > .tbl-wrap{overflow:visible}
+/* a sticky panel cannot scroll its own table (overflow must stay visible), so the table may not be
+   wider than the panel either — it would spill out past the panel's border and the head above it. */
+.panel.stick > .tbl-wrap > table{min-width:0}
 .panel.stick > .panel-head{position:sticky;top:var(--topbar-h,0px);z-index:30}
 .panel.stick thead th{position:sticky;top:calc(var(--topbar-h,0px) + var(--head-h,0px));z-index:20}
 th{white-space:nowrap}

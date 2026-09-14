@@ -140,3 +140,29 @@ test('a name can be taken off the tag roster; comments already written keep it',
   expect(await page.evaluate(() => DATA.comments[0].to)).toEqual(['leaving.soon']);
   await expect(page.locator('.thread[data-thread="F01"] .cmt .mention')).toHaveText('@leaving.soon');
 });
+
+test('the table stays inside its panel beside the rail, header and body aligned', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  for (const width of [1180, 1440, 1728]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const tab of ['features', 'items']) {
+      await page.click(`[data-tab="${tab}"]`);
+      const m = await page.evaluate(() => {
+        const t = document.querySelector('.panel.stick table');
+        const panel = document.querySelector('.panel.stick');
+        const rail = document.querySelector('.rail');
+        const lefts = sel => [...t.querySelectorAll(sel)].map(e => Math.round(e.getBoundingClientRect().left));
+        return {
+          th: lefts('thead th'),
+          td: lefts('tbody tr.row:first-of-type > td'),
+          spill: t.getBoundingClientRect().right - panel.getBoundingClientRect().right,
+          overRail: t.getBoundingClientRect().right - rail.getBoundingClientRect().left,
+        };
+      });
+      expect(m.th, `${tab} @${width}px`).toEqual(m.td);     // a column header sits over its column
+      expect(m.spill, `${tab} @${width}px`).toBeLessThanOrEqual(1);   // and the table inside its panel
+      expect(m.overRail, `${tab} @${width}px`).toBeLessThanOrEqual(1);
+    }
+  }
+});
