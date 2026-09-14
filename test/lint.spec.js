@@ -107,3 +107,31 @@ test('a row due in a later phase is not warned about at all', async ({ page }) =
   const lines = await lint(page);
   expect(matching(lines, /F85|VI85/)).toHaveLength(0);      // empty, unlinked, unfinished — and not yet due
 });
+
+test('a testcase says which items it runs; an item nobody runs is a warning', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'Alpha';
+    D.items.push({ id: 'VI700', name: 'run by nobody', description: 'd', feature_refs: ['F01'],
+                   oracle: 'o', report: 'r', judged_by: ['scoreboard'], status: 'finalized',
+                   phase: 'Alpha', implemented: 'done', notes: '' });
+    D.items.push({ id: 'VI701', name: 'run by TC700', description: 'd', feature_refs: ['F01'],
+                   oracle: 'o', report: 'r', judged_by: ['scoreboard'], status: 'finalized',
+                   phase: 'Alpha', implemented: 'done', notes: '' });
+    D.testcases.push({ id: 'TC700', name: 'tc_runs_701', feature_refs: ['F01'], item_refs: ['VI701', 'VI999'],
+                       priority: 'P1', type: 'directed', status: 'finalized', owner: 'x', description: 'd',
+                       uvm: { test_class: 'c', base_test: 'b', virtual_sequence: 'v', sequences: [{ agent: 'a', seq_class: 's', params: '' }] },
+                       config: { timeout_ns: 1000 }, checks: [{ type: 'scoreboard', description: 'd', ref: '' }],
+                       coverage_refs: [], pass_criteria: 'p', dependencies: [], seeds: 1, tb_gen_hints: '' });
+  });
+  const lines = await lint(page);
+
+  const gap = matching(lines, /no testcase exercises this item/);
+  expect(gap).toHaveLength(1);
+  expect(gap[0]).toContain('VI700');
+  expect(gap[0]).not.toContain('VI701');            // that one is run
+
+  // an item_ref that resolves to nothing is the same error as any other dangling reference
+  expect(matching(lines, /^ERR .*reference points at an id that does not exist.*TC700→VI999/)).toHaveLength(1);
+});

@@ -1276,10 +1276,10 @@ VIEW.testcases=()=>`
       return n?`<span class="badge ${({passing:'b-ok',coded:'b-acc',in_progress:'b-warn',failing:'b-err',blocked:'b-err'})[s]||'b-mut'}">${n} ${esc(s)}</span>`:''}).join('')}</div>
     <span class="hint">${DATA.testcases.reduce((a,t)=>a+(+t.seeds||0),0)} seed-runs total</span></div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th></th><th style="width:60px">ID</th><th style="width:17%">Test name</th><th style="width:90px">Features</th>
-    <th style="width:70px">Pri</th><th style="width:120px">Type</th>
-    <th style="width:130px">Definition</th><th style="width:90px">Owner</th><th style="width:56px">Seeds</th>
-    <th style="width:30%">Description</th><th></th>
+    <th></th><th style="width:60px">ID</th><th style="width:15%">Test name</th><th style="width:86px">Features</th>
+    <th style="width:86px">Items</th><th style="width:64px">Pri</th><th style="width:112px">Type</th>
+    <th style="width:124px">Definition</th><th style="width:86px">Owner</th><th style="width:52px">Seeds</th>
+    <th style="width:24%">Description</th><th></th>
   </tr></thead><tbody>
   ${DATA.testcases.map((t,i)=>{
     const open=OPEN.has(t.id);
@@ -1288,6 +1288,7 @@ VIEW.testcases=()=>`
       <td>${cell(`testcases.${i}.id`,{cls:'id'})}</td>
       <td>${cell(`testcases.${i}.name`,{cls:'mono'})}</td>
       <td>${cell(`testcases.${i}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'})}</td>
+      <td>${cell(`testcases.${i}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001'})}</td>
       <td>${sel(`testcases.${i}.priority`,E.priority)}</td>
       <td>${sel(`testcases.${i}.type`,E.test_type)}</td>
       <td>${sel(`testcases.${i}.status`,E.status)}</td>
@@ -1295,7 +1296,7 @@ VIEW.testcases=()=>`
       <td>${cell(`testcases.${i}.seeds`,{cls:'mono nw'})}</td>
       <td>${cell(`testcases.${i}.description`)}</td>
       ${rowBtns('testcases',i)}</tr>
-      ${open?`<tr class="detail"><td colspan="11">${tcDetail(t,i)}</td></tr>`:''}`;
+      ${open?`<tr class="detail"><td colspan="12">${tcDetail(t,i)}</td></tr>`:''}`;
   }).join('')}
   </tbody></table></div></div>`;
 
@@ -1433,7 +1434,7 @@ function commonBaseTest(){
 const TEMPLATE={
   item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
-  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
+  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
     config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
     checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],seeds:1,tb_gen_hints:''}),
@@ -1456,7 +1457,7 @@ function renumberIds(){
   const remap=a=>(a||[]).map(m);
   DATA.items.forEach(it=>{ it.feature_refs=remap(it.feature_refs); });
   DATA.features.forEach(f=>{ if(f.related_refs) f.related_refs=remap(f.related_refs); });
-  DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); });
+  DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); t.item_refs=remap(t.item_refs); });
   DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
   DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
@@ -1486,6 +1487,7 @@ function lint(){
   const itemUnD =grp('err','item','definition is not finalized');
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
+  const itemNoTC=grp('warn','item','no testcase exercises this item');
   const tcNoCls =grp('err','plan','testcase has no uvm.test_class');
   const tcNoChk =grp('err','plan','testcase has no checks');
   const tcNoSeq =grp('warn','plan','testcase has no sequence');
@@ -1558,8 +1560,12 @@ function lint(){
   });
   DATA.items.forEach(it=>{ if(due(it) && blanks(it).length) gapI.ids.push(it.id); });
 
+  const vids=new Set(ids(DATA.items));
+  const runItems=new Set(DATA.testcases.flatMap(t=>t.item_refs||[]));
+  DATA.items.forEach(it=>{ if(due(it) && !runItems.has(it.id)) itemNoTC.ids.push(it.id); });
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
+    (t.item_refs||[]).forEach(r=>{ if(!vids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     (t.coverage_refs||[]).forEach(r=>{ if(!cids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     (t.dependencies||[]).forEach(r=>{ if(!tids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!t.uvm||!t.uvm.test_class) tcNoCls.ids.push(t.id);
