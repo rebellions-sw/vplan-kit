@@ -92,7 +92,8 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   place, and refuses to overwrite anything. Two doors stay open so a review can round-trip: it still
   takes **comments** (and `meta.me`, so they are signed), and **Save As** still forks a new dated
   snapshot carrying them. Rows, enums and every other field remain read-only. Only `serializeDoc(at)` may mint the marker — never write it into a working plan.
-- **All rendered UI lives inside `#app`.** `serializeDoc()` empties it; anything outside gets baked into
+- **All rendered UI lives inside `#app`.** `serializeDoc()` empties it and strips its `style` and
+  `class` (measured sticky offsets, the snapshot dress, the rail layout — render state, not content); anything outside gets baked into
   the saved file permanently.
 - **Do not `render()` on every keystroke.** Re-rendering blows away focus and the caret in a
   `contenteditable`. The `input` handler writes to `DATA` and stops. Only structural changes
@@ -107,7 +108,7 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
   on its own. The `Refresh` button is the one exception — it renumbers `F##`/`VI###` to match list order
   and rewrites every reference (`feature_refs`, `accepted_as`, active filters) from a map captured before
   the change. Anything outside this file that cites an id (a ticket, a commit message) will not follow.
-- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `DIA`, `DIAZ`, `RAIL`, `CMTFOCUS`, `CMTDRAFT`, `CMTOPENONLY`, `CMTMINE`) is not persisted** — a saved file always reopens
+- **Module-level UI state (`TAB`, `OPEN`, `SUGOPEN`, `DIA`, `DIAZ`, `CMTFOCUS`, `CMTDRAFT`, `CMTOPENONLY`, `CMTMINE`) is not persisted** — a saved file always reopens
   on the default tab. `test/export.spec.js` asserts this.
 
 ### Schema (`vplan/1.0`)
@@ -120,7 +121,7 @@ In a sandbox that already ships a chromium binary, point at it instead of downlo
 | `testcases[]` | **how** — UVM test class, virtual sequence, per-agent sequences, config, checks. `TC###` |
 | `coverage.functional[]` `coverage.assertions[]` `coverage.code` | `CG##`, `SVA##`, targets + sign-off |
 | `suggestions[]` | agent inbox — proposals for rows that do not exist yet. **Not the plan.** `S###` |
-| `comments[]` | **review conversation**, not the plan — `{cid, target, author, to[], text, created, resolved}`, where `target` is a row id (or `plan`). Rendered in the Comments rail down the right edge (`RAIL`), one thread per target, with `meta.people[]` as the tag roster and `meta.me` as who is writing. Open comments are a lint warning. **Agents never write here** — it is how two people talk about the plan. `C###` |
+| `comments[]` | **review conversation**, not the plan — `{cid, target, author, to[], text, created, resolved}`, where `target` is a row id (or `plan`). Rendered in the Comments rail down the right edge — always on screen, never a toggle — one thread per target, with `meta.people[]` as the tag roster and `meta.me` as who is writing. Open comments are a lint warning. **Agents never write here** — it is how two people talk about the plan. `C###` |
 | `audits[]` | agent inbox — findings against rows that DO exist: `target` (the row id), `finding` (`missing`/`insufficient`/`mismatch`), and `fix`, a patch of only the fields to change. Both outcomes consume the card: **Accept** applies the fix and deletes it, **Decline** deletes it unapplied — so this array only ever holds open findings, with no accepted/rejected state, `accepted_as` or `reject_kind`. **Not the plan.** `A###` |
 
 Cross-references are ID strings: `features[].related_refs[] → features[].id` (command-category only —

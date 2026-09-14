@@ -17,8 +17,7 @@ async function writeComment(page, target, text, to = []) {
 }
 
 async function beMe(page, name) {
-  await page.click('[data-act="rail"]');
-  const me = page.locator('[data-path="meta.me"]');
+  const me = page.locator('[data-path="meta.me"]');   // the rail is always on screen
   await me.click();
   await me.evaluate((el, n) => { el.textContent = n; el.dispatchEvent(new Event('input', { bubbles: true })); }, name);
 }
@@ -109,4 +108,35 @@ test('a snapshot takes comments but still refuses to edit a row', async ({ page 
     if (el) { el.textContent = 'hacked'; el.dispatchEvent(new Event('input', { bubbles: true })); }
   });
   expect(await page.evaluate(() => DATA.features[0].description)).toBe('d');
+});
+
+test('the rail is always on screen, and the page is laid out beside it', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await expect(page.locator('.rail')).toHaveCount(1);          // no toggle to forget
+  expect(await page.evaluate(() => document.querySelector('#app').classList.contains('railed'))).toBe(true);
+
+  const rail = await page.locator('.rail').boundingBox();
+  const table = await page.locator('.panel table').first().boundingBox();
+  expect(table.x + table.width).toBeLessThanOrEqual(rail.x + 1);   // the rail never covers a row
+
+  await page.evaluate(() => render());
+  await expect(page.locator('.rail')).toHaveCount(1);          // and it survives a re-render
+});
+
+test('a name can be taken off the tag roster; comments already written keep it', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => { DATA.meta.people = ['jinsu.kim', 'leaving.soon']; render(); });
+
+  await writeComment(page, 'F01', '확인 부탁', ['leaving.soon']);
+  await expect(page.locator('.cmp-to .men')).toHaveCount(2);
+
+  await page.click('[data-act="cmt-person-del"][data-name="leaving.soon"]');
+  await expect(page.locator('.cmp-to .men')).toHaveCount(1);
+  expect(await page.evaluate(() => DATA.meta.people)).toEqual(['jinsu.kim']);
+  // the comment that already tagged them is untouched — it is a record of what was said
+  expect(await page.evaluate(() => DATA.comments[0].to)).toEqual(['leaving.soon']);
+  await expect(page.locator('.thread[data-thread="F01"] .cmt .mention')).toHaveText('@leaving.soon');
 });
