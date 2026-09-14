@@ -154,19 +154,21 @@ test('when the helper is unreachable, Save falls back to a download — still no
   expect(dl.len).toBeGreaterThan(0);
 });
 
-test('a snapshot reopened has no Save buttons — the stamp sits where they were', async ({ page }) => {
+test('a snapshot reopened cannot Save — the stamp sits where that button was', async ({ page }) => {
   const snap = makeSnapshotFile('2026-09-01 10:30:00');
   await page.goto('file://' + snap);
   await page.waitForFunction(() => typeof DATA === 'object');
 
   expect(await page.locator('[data-act="save"]').count()).toBe(0);
-  expect(await page.locator('[data-act="save-as"]').count()).toBe(0);
+  expect(await page.locator('[data-act="load"]').count()).toBe(0);
   await expect(page.locator('#save-target')).toHaveText('저장됨: 2026-09-01 10:30:00');
+  // Save As stays: a reviewer answers a snapshot by writing a new one with their comments in it
+  expect(await page.locator('[data-act="save-as"]').count()).toBe(1);
 
-  // the buttons live inside render()'s output — they must stay gone across re-renders too
+  // the buttons live inside render()'s output — the split must hold across re-renders too
   await page.evaluate(() => render());
   expect(await page.locator('[data-act="save"]').count()).toBe(0);
-  expect(await page.locator('[data-act="save-as"]').count()).toBe(0);
+  expect(await page.locator('[data-act="save-as"]').count()).toBe(1);
   await expect(page.locator('#save-target')).toHaveText('저장됨: 2026-09-01 10:30:00');
 });
 
@@ -241,7 +243,7 @@ test('Load refuses a file that is not a snapshot', async ({ page }) => {
   expect(await page.evaluate(() => DATA.meta.ip_name)).toBe('SEED');   // untouched
 });
 
-test('a snapshot never saves, even by keyboard', async ({ page }) => {
+test('a snapshot never overwrites, even by keyboard — Save bounces, Save As forks', async ({ page }) => {
   const snap = makeSnapshotFile('2026-09-01 10:30:00');
   await page.goto('file://' + snap);
   await page.waitForFunction(() => typeof DATA === 'object');
@@ -250,14 +252,18 @@ test('a snapshot never saves, even by keyboard', async ({ page }) => {
   await page.evaluate(() => { window.__dl = null; window.download = () => { window.__dl = true; }; });
 
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+s' : 'Control+Shift+s');
   await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('스냅샷 파일'));
 
   const { picks, writes, fetches, dl } = await page.evaluate(() => ({
     picks: window.__picks, writes: window.__writes, fetches: window.__fetches, dl: window.__dl,
   }));
-  expect(picks.length).toBe(0);
-  expect(writes.length).toBe(0);
-  expect(fetches.length).toBe(0);
+  expect(picks.length).toBe(0);     // no picker for Save
+  expect(writes.length).toBe(0);    // and nothing written
+  expect(fetches.length).toBe(0);   // the helper is never told about a snapshot
   expect(dl).toBeNull();
+
+  // Save As, though, forks a new snapshot — that is how a reviewed copy goes back
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+s' : 'Control+Shift+s');
+  await page.waitForFunction(() => window.__writes.length === 1);
+  expect(await page.evaluate(() => window.__fetches.length)).toBe(0);
 });

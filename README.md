@@ -71,6 +71,16 @@ button is the only path into the plan. 예외는 하나 — `/vplan_feature_desc
   열립니다. `file://` URL은 링크가 아니므로 파일 자체를 첨부해서 보내세요.
 - **Load** (originals only) — pull a snapshot's data back onto the screen; press Save to make it real.
 
+## Reviewing with someone else
+
+각 행의 **💬** 를 누르면 화면 오른쪽 **Comments 레일**에 그 행의 스레드가 열립니다. 이름을 태그해서
+(`@이름`) 코멘트를 남기고, 받은 사람은 `@me` 필터로 자기에게 온 것만 볼 수 있습니다. 코멘트는 플랜
+데이터의 일부라 파일과 함께 이동하고, 열린 코멘트는 Lint에 경고로 잡힙니다.
+
+주고받는 방법: **Save As로 스냅샷을 만들어 보내면**, 받는 사람은 행은 못 고치지만 **코멘트는 쓸 수
+있고** 다시 Save As로 답장 사본을 만들어 돌려줍니다. 원본 소유자는 그 사본을 열어 코멘트를 읽고
+원본에 반영합니다 — 행을 고치는 것은 언제나 원본 한 곳에서만 일어납니다.
+
 **One discipline point:** Save before you ask Claude Code for anything, and reload the tab after it
 edits. Save puts your screen on disk; reload puts the disk back on your screen.
 
