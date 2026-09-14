@@ -696,7 +696,8 @@ function rowMatches(r,q){
 function rowsOf(arrPath){
   const f=filterOf(arrPath);
   return (get(arrPath)||[]).map((r,i)=>({r,i})).filter(({r})=>{
-    if(!['category','phase','status'].every(k=>!f[k]||r[k]===f[k])) return false;
+    // every column filter that is a plain value match — miss one and its dropdown does nothing
+    if(!['category','phase','status','implemented'].every(k=>!f[k]||r[k]===f[k])) return false;
     if(f.vref){                       // features, filtered by the item that verifies them
       const linked=DATA.items.filter(it=>(it.feature_refs||[]).includes(r.id)).map(it=>it.id);
       if(f.vref==='__none__' ? linked.length : !linked.includes(f.vref)) return false;

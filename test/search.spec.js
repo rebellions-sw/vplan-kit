@@ -142,3 +142,33 @@ test('the Verification items list has the same box, over its own fields', async 
   await page.click('[data-tab="features"]');
   expect(await page.inputValue('[data-search="features"]')).toBe('');
 });
+
+test('every column dropdown filters — including Implemented on the items table', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.items = [
+      { id:'VI001', name:'done one',  description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
+        status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
+      { id:'VI002', name:'todo one',  description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
+        status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
+      { id:'VI003', name:'wip one',   description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
+        status:'editing', phase:'Beta', implemented:'wip', notes:'' },
+    ];
+    render();
+  });
+  await page.click('[data-tab="items"]');
+  const ids = () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
+
+  await page.selectOption('select[data-filter="items"][data-key="implemented"]', 'done');
+  expect(await ids()).toEqual(['VI001']);
+
+  await page.selectOption('select[data-filter="items"][data-key="implemented"]', 'wip');
+  expect(await ids()).toEqual(['VI003']);
+
+  // it stacks with the other column filters rather than replacing them
+  await page.selectOption('select[data-filter="items"][data-key="phase"]', 'Alpha');
+  expect(await ids()).toEqual([]);
+  await page.selectOption('select[data-filter="items"][data-key="implemented"]', '');
+  expect(await ids()).toEqual(['VI001', 'VI002']);
+});
