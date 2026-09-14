@@ -34,7 +34,7 @@ test('a comment lands on the row, in the rail, and in the saved file', async ({ 
   await expect(thread).toHaveCount(1);
   await expect(thread.locator('.cmt-txt')).toHaveText('oracle 이거 맞아?');
   await expect(thread.locator('.cmt .mention')).toHaveText('@jinsu.kim');   // the card's chip, not the composer's roster
-  await expect(page.locator('[data-act="cmt"][data-target="F01"] .cmt-n')).toHaveText('1');
+  await expect(page.locator('tr.row.hascmt .cmark')).toHaveText('💬1');   // the count rides the row's chip
 
   const saved = await page.evaluate(() => {
     const tag = '<script id="vplan-data" type="application/json">';
@@ -139,4 +139,29 @@ test('a name can be taken off the tag roster; comments already written keep it',
   // the comment that already tagged them is untouched — it is a record of what was said
   expect(await page.evaluate(() => DATA.comments[0].to)).toEqual(['leaving.soon']);
   await expect(page.locator('.thread[data-thread="F01"] .cmt .mention')).toHaveText('@leaving.soon');
+});
+
+test('a commented row is marked in the table, and the mark opens its thread', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await writeComment(page, 'F02', '여기 한 번 봐줘');
+  await page.click('[data-act="cmt-cancel"]');
+
+  const rows = page.locator('tr.row');
+  await expect(rows.filter({ has: page.locator('.cmark') })).toHaveCount(1);
+  const marked = page.locator('tr.row.hascmt');
+  await expect(marked).toHaveCount(1);
+  await expect(marked.locator('.cell.id')).toHaveText('F02');
+  await expect(marked.locator('.cmark')).toHaveText('💬1');
+
+  // clicking the mark focuses that thread in the rail
+  await marked.locator('.cmark').click();
+  await expect(page.locator('.thread.focus[data-thread="F02"]')).toHaveCount(1);
+
+  // resolved: the row still shows it happened, in grey
+  await page.click('[data-act="cmt-cancel"]');
+  await page.locator('.thread[data-thread="F02"] [data-act="cmt-resolve"]').click();
+  await expect(page.locator('tr.row.hascmt')).toHaveCount(0);
+  await expect(page.locator('tr.row.hadcmt .cmark.done')).toHaveCount(1);
 });
