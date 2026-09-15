@@ -432,7 +432,7 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
 .lg-body{flex:1;min-width:0}
 .lg-title{font-size:12.5px;font-weight:400;margin-bottom:5px}
 .scope{font-weight:800;font-size:10px;line-height:1.4;text-transform:uppercase;letter-spacing:.12em;margin-right:6px}
-.s-feature,.s-item,.s-testcase,.s-uncovered,.s-plan{color:var(--ink-2)}
+.s-feature,.s-item,.s-testcase,.s-plan{color:var(--ink-2)}
 .lg-n{color:var(--mut);font-weight:600}
 .lg-title .hint{font-weight:400;margin-left:6px}
 .lint-item{display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--line-2);font-size:12.5px;align-items:baseline}
@@ -1522,7 +1522,7 @@ function lint(){
   const tcNoF   =grp('err','testcase','no feature is linked — the test verifies nothing');
   const tcUnD   =grp('err','testcase','definition is not finalized');
   const tcUnI   =grp('err','testcase','implemented is not done');
-  const featNoTC=grp('err','uncovered','no testcase exercises this feature');
+  const featNoTC=grp('err','testcase','no testcase exercises this feature');
   const cgNoRef =grp('warn','plan','covergroup has no feature');
   const svaNoMod=grp('warn','plan','assertion has no bind module');
   const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
@@ -1640,12 +1640,12 @@ function lint(){
     <span class="hint">phase: ${esc(DATA.meta.phase||'—')}</span>
     <div class="spacer"></div><button class="btn sm" data-act="lint-close">닫기</button></div>
     <div class="panel-body">
-      ${live.length?['feature','item','testcase','uncovered','plan'].map(sc=>{
+      ${live.length?['feature','item','testcase','plan'].map(sc=>{
         const rows=live.filter(x=>x.scope===sc); if(!rows.length) return '';
         const e=rows.filter(x=>x.sev==='err').reduce((n,x)=>n+x.ids.length,0);
         const w=rows.reduce((n,x)=>n+x.ids.length,0)-e;
         return `<div class="lint-sec">
-          <div class="lint-sec-head"><span class="scope s-${sc}">${({item:'verification items',feature:'features',testcase:'testcases',uncovered:'uncovered features'})[sc]||'plan'}</span>
+          <div class="lint-sec-head"><span class="scope s-${sc}">${({item:'verification items',feature:'features',testcase:'testcases'})[sc]||'plan'}</span>
             ${e?`<span class="badge b-err">${e} error</span>`:''}${w?`<span class="badge b-warn">${w} warning</span>`:''}</div>
           ${rows.map(x=>`
           <div class="lint-group" data-scope="${sc}"><span class="badge ${B[x.sev]}">${x.sev==='err'?'ERR':'WARN'}</span>

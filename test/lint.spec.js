@@ -239,7 +239,7 @@ test('a feature no testcase links is reported under uncovered features', async (
   });
   const lines = await lint(page);
 
-  const hit = matching(lines, /UNCOVERED .*no testcase exercises this feature/);
+  const hit = matching(lines, /TESTCASE .*no testcase exercises this feature/);
   expect(hit).toHaveLength(1);
   expect(hit[0]).toContain('F91');
   expect(hit[0]).not.toContain('F90');
