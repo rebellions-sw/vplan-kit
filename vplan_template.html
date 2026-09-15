@@ -1126,11 +1126,12 @@ function tcItemGroups(t){
   v.forEach(id=>{
     const it=DATA.items.find(x=>x.id===id);
     const by=(it&&it.judged_by)||[];
-    const key=by.length&&by.every(x=>VIPS.has(x)) ? 'STI VIP' : (by.join(' · ')||'—');
+    // two judges on one item is an addition, not a list — "scoreboard + ref-model" reads as the pair it is
+    const key=by.length&&by.every(x=>VIPS.has(x)) ? 'STI VIP' : (by.join(' + ')||'—');
     if(!g.has(key)) g.set(key,[]);
     g.get(key).push(id);
   });
-  const rank=k=>k==='STI VIP'?0:(((DATA.$enums.judged_by||[]).indexOf(k.split(' · ')[0])+1)||99);
+  const rank=k=>k==='STI VIP'?0:(((DATA.$enums.judged_by||[]).indexOf(k.split(' + ')[0])+1)||99);
   return `<div class="vgrid">${[...g.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[0].localeCompare(b[0]))
     .map(([k,ids])=>`<span class="vg-k">${esc(k)}</span><span class="vg-v">${ids.map(id=>
       `<span class="reflink"><button class="peek" data-act="peek" data-peek="item"

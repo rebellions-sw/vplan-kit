@@ -290,6 +290,6 @@ test("a testcase's items are grouped by who judges them", async ({ page }) => {
   }));
   expect(groups).toEqual([
     ['STI VIP', ['VI001', 'VI004']],                  // SOM-VIP / IP-VIP / both all read as one
-    ['scoreboard · ref-model', ['VI002', 'VI003']],
+    ['scoreboard + ref-model', ['VI002', 'VI003']],
   ]);
 });
