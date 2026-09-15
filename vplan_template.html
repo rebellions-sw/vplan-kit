@@ -1606,14 +1606,12 @@ function lint(){
   const errs=live.filter(x=>x.sev==='err').reduce((n,x)=>n+x.ids.length,0);
   const warns=live.filter(x=>x.sev==='warn').reduce((n,x)=>n+x.ids.length,0);
   const B={err:'b-err',warn:'b-warn'};
-  const inv=Object.keys(agentUse).sort().map(a=>`<span class="badge b-acc">${esc(a)} ×${agentUse[a]}</span>`).join('');
   const html=`<div class="panel lintbox"><div class="panel-head"><h2>Lint</h2>
     <span class="badge ${errs?'b-err':'b-ok'}">${errs} error</span>
     <span class="badge b-warn">${warns} warning</span>
     <span class="hint">phase: ${esc(DATA.meta.phase||'—')}</span>
     <div class="spacer"></div><button class="btn sm" data-act="lint-close">닫기</button></div>
     <div class="panel-body">
-      ${inv?`<div class="lint-group"><span class="badge b-mut">AGENTS</span><div class="lg-body"><div class="chips">${inv}</div></div></div>`:''}
       ${live.length?['feature','item','testcase','plan'].map(sc=>{
         const rows=live.filter(x=>x.scope===sc); if(!rows.length) return '';
         const e=rows.filter(x=>x.sev==='err').reduce((n,x)=>n+x.ids.length,0);
