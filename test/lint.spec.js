@@ -195,3 +195,24 @@ test('an open comment is no longer a lint line — the rail counts them', async 
   expect(matching(await lint(page), /review comments/)).toHaveLength(0);
   await expect(page.locator('.rail-head .badge').first()).toHaveText('1 open');
 });
+
+test('a due testcase with no feature is an error — it verifies nothing', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'Alpha';
+    const tc = (id, phase, feature_refs) => ({ id, name: id, feature_refs, type: 'directed', phase,
+      status: 'finalized', implemented: 'done', description: 'd',
+      uvm: { sequences: [{ agent: 'a', seq_class: 's', params: '' }] }, tb_gen_hints: '' });
+    D.testcases = [
+      tc('TC020', 'Alpha', []),          // due, linked to nothing
+      tc('TC021', 'Alpha', ['F01']),     // due and linked
+      tc('TC022', 'Beta',  []),          // not due yet
+    ];
+  });
+  const hit = matching(await lint(page), /no feature is linked — the test verifies nothing/);
+  expect(hit).toHaveLength(1);
+  expect(hit[0]).toContain('TC020');
+  expect(hit[0]).not.toContain('TC021');
+  expect(hit[0]).not.toContain('TC022');
+});

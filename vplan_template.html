@@ -1492,6 +1492,7 @@ function lint(){
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
   const itemNoTC=grp('warn','item','needs a dedicated testcase — none names it');
+  const tcNoF   =grp('err','testcase','no feature is linked — the test verifies nothing');
   const tcUnD   =grp('err','testcase','definition is not finalized');
   const tcUnI   =grp('err','testcase','implemented is not done');
   const tcNoSeq =grp('warn','testcase','testcase has no sequence');
@@ -1567,6 +1568,7 @@ function lint(){
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!due(t)) return;                      // a Beta test is not this plan's problem while it is on Alpha
+    if(!(t.feature_refs||[]).length) tcNoF.ids.push(t.id);   // and with no feature it exercises no item either
     if(t.status!=='finalized')  tcUnD.ids.push(`${t.id}(${t.status||'—'})`);
     if(t.implemented!=='done')  tcUnI.ids.push(`${t.id}(${t.implemented||'—'})`);
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
