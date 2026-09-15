@@ -228,7 +228,7 @@ test('a testcase links features by chip; its verification items follow from them
   await page.click('[data-tab="testcases"]');
 
   const tc = 'TC001';
-  const shown = () => page.$$eval('tr.subrow .refcell [data-peek="item"]', els => els.map(e => e.textContent.trim()));
+  const shown = () => page.$$eval('tr.subrow .vgrp-v [data-peek="item"]', els => els.map(e => e.textContent.trim()));
   expect(await shown()).toEqual([]);                       // no feature yet, so nothing to run
 
   await page.selectOption(`select[data-pick="tcf"][data-owner="${tc}"]`, 'F01');
@@ -262,4 +262,31 @@ test('Refresh renumbers testcases too, and the links that point at rows follow',
   expect(await page.evaluate(() => DATA.testcases.map(t => [t.id, t.name]))).toEqual([['TC001', 'first'], ['TC002', 'second']]);
   expect(await page.evaluate(() => DATA.comments[0].target)).toBe('TC002');   // the thread follows its row
   expect(await page.evaluate(() => DATA.testcases[0].feature_refs)).toEqual(['F02']);
+});
+
+test("a testcase's items are grouped by who judges them", async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.items = [
+      { id:'VI001', name:'a', description:'', feature_refs:['F01'], oracle:'', report:'', judged_by:['SOM-VIP'],
+        status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
+      { id:'VI002', name:'b', description:'', feature_refs:['F01'], oracle:'', report:'', judged_by:['scoreboard','ref-model'],
+        status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
+      { id:'VI003', name:'c', description:'', feature_refs:['F01'], oracle:'', report:'', judged_by:['scoreboard','ref-model'],
+        status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
+    ];
+    DATA.testcases = [{ ...TEMPLATE.testcase([]), feature_refs:['F01'] }];
+    render();
+  });
+  await page.click('[data-tab="testcases"]');
+
+  const groups = await page.$$eval('.vgrp', els => els.map(e => [
+    e.querySelector('.vgrp-k').textContent.trim(),
+    [...e.querySelectorAll('.vgrp-v [data-peek="item"]')].map(x => x.textContent.trim()),
+  ]));
+  expect(groups).toEqual([
+    ['SOM-VIP', ['VI001']],
+    ['scoreboard · ref-model', ['VI002', 'VI003']],   // enum order puts the VIP first
+  ]);
 });

@@ -172,6 +172,11 @@ body{
 .btn.icon.cmt.on{color:var(--accent);border-color:var(--accent)}
 .btn.icon.cmt.mine{background:var(--accent-soft)}
 .cmt-n{font:700 9.5px var(--mono);margin-left:2px}
+/* a testcase's derived items, one line per judged-by mix */
+.vgrp{display:flex;align-items:flex-start;gap:8px;margin:3px 0}
+.vgrp-k{flex:0 0 156px;font:600 10.5px var(--mono);color:var(--mut);padding-top:3px;text-align:right;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vgrp-v{display:flex;flex-wrap:wrap;gap:4px}
 @media print{.rail{display:none!important} #app.railed{padding-right:0}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
 .srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
@@ -1104,6 +1109,24 @@ function cmtBtn(target){
 const rowOfId=id=>(String(id).startsWith('VI')?DATA.items:DATA.features).find(r=>r.id===id);
 /* A testcase names features; the verification items it exercises follow from them. Derived, never
    stored — otherwise the two lists drift and the plan has two answers to the same question. */
+/* The items a test runs, grouped by who judges them — the same list read as "and who checks it".
+   Groups follow $enums.judged_by order so two testcases with the same mix look the same. */
+function tcItemGroups(t){
+  const v=tcItems(t);
+  if(!v.length) return '<span class="badge b-mut">none</span>';
+  const g=new Map();
+  v.forEach(id=>{
+    const it=DATA.items.find(x=>x.id===id);
+    const key=((it&&it.judged_by)||[]).join(' · ')||'—';
+    if(!g.has(key)) g.set(key,[]);
+    g.get(key).push(id);
+  });
+  const rank=k=>((DATA.$enums.judged_by||[]).indexOf(k.split(' · ')[0])+1)||99;
+  return [...g.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[0].localeCompare(b[0]))
+    .map(([k,ids])=>`<div class="vgrp"><span class="vgrp-k">${esc(k)}</span>
+      <span class="vgrp-v">${ids.map(id=>`<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
+        data-id="${esc(id)}" title="${esc(id)} · 내용 보기">${esc(id)}</button></span>`).join('')}</span></div>`).join('');
+}
 function tcItems(t){
   const fs=new Set(t.feature_refs||[]);
   return DATA.items.filter(it=>(it.feature_refs||[]).some(f=>fs.has(f))).map(it=>it.id);
@@ -1323,10 +1346,7 @@ VIEW.testcases=()=>`
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
       <td colspan="2">${field('Features',`<div class="refcell">${refChips('tcf',t.id,t.feature_refs||[])}
         ${linkPicker('tcf',t.id,DATA.features.filter(f=>!(t.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td colspan="3">${field('Verification Items',`<div class="refcell">${(()=>{const v=tcItems(t);
-        return v.length?v.map(id=>`<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
-          data-id="${esc(id)}" title="${esc(id)} · 내용 보기">${esc(id)}</button></span>`).join('')
-        :'<span class="badge b-mut">none</span>';})()}</div>`,'연결된 feature의 item — 자동')}</td></tr>
+      <td colspan="3">${field('Verification Items',tcItemGroups(t))}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
