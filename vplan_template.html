@@ -172,11 +172,16 @@ body{
 .btn.icon.cmt.on{color:var(--accent);border-color:var(--accent)}
 .btn.icon.cmt.mine{background:var(--accent-soft)}
 .cmt-n{font:700 9.5px var(--mono);margin-left:2px}
-/* a testcase's derived items, one line per judged-by mix */
-.vgrp{display:flex;align-items:flex-start;gap:8px;margin:3px 0}
-.vgrp-k{flex:0 0 156px;font:600 10.5px var(--mono);color:var(--mut);padding-top:3px;text-align:right;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vgrp-v{display:flex;flex-wrap:wrap;gap:4px}
+/* a testcase's derived items: grouped by who judges them, but flowing — a row per group ate the
+   screen, so each group is a tag followed by its ids and the lot wraps like text */
+/* the features a testcase names are few and short; the items they drag in are many — so the row is
+   split by need, not down the middle */
+.tc-links{display:grid;grid-template-columns:minmax(190px,21%) minmax(0,1fr);gap:0 20px;align-items:start}
+.vgrid{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0 12px;align-items:start}
+.vg-k{font:600 10px system-ui,sans-serif;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
+  white-space:nowrap;padding:6px 0 0}
+.vg-v{display:flex;flex-wrap:wrap;gap:4px;padding:3px 0}
+.vgrid > .vg-k:not(:first-child),.vgrid > .vg-v:not(:nth-child(2)){border-top:1px solid var(--line-2)}
 @media print{.rail{display:none!important} #app.railed{padding-right:0}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
 .srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
@@ -1122,10 +1127,10 @@ function tcItemGroups(t){
     g.get(key).push(id);
   });
   const rank=k=>((DATA.$enums.judged_by||[]).indexOf(k.split(' · ')[0])+1)||99;
-  return [...g.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[0].localeCompare(b[0]))
-    .map(([k,ids])=>`<div class="vgrp"><span class="vgrp-k">${esc(k)}</span>
-      <span class="vgrp-v">${ids.map(id=>`<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
-        data-id="${esc(id)}" title="${esc(id)} · 내용 보기">${esc(id)}</button></span>`).join('')}</span></div>`).join('');
+  return `<div class="vgrid">${[...g.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[0].localeCompare(b[0]))
+    .map(([k,ids])=>`<span class="vg-k">${esc(k)}</span><span class="vg-v">${ids.map(id=>
+      `<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
+        data-id="${esc(id)}" title="${esc(id)} · 내용 보기">${esc(id)}</button></span>`).join('')}</span>`).join('')}</div>`;
 }
 function tcItems(t){
   const fs=new Set(t.feature_refs||[]);
@@ -1344,9 +1349,11 @@ VIEW.testcases=()=>`
     <td>${sel(`${p}.status`,E.status)}</td>
     <td>${sel(`${p}.implemented`,E.implemented)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
-      <td colspan="2">${field('Features',`<div class="refcell">${refChips('tcf',t.id,t.feature_refs||[])}
-        ${linkPicker('tcf',t.id,DATA.features.filter(f=>!(t.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td colspan="3">${field('Verification Items',tcItemGroups(t))}</td></tr>
+      <td colspan="5"><div class="tc-links">
+        ${field('Features',`<div class="refcell">${refChips('tcf',t.id,t.feature_refs||[])}
+          ${linkPicker('tcf',t.id,DATA.features.filter(f=>!(t.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}
+        ${field('Verification Items',tcItemGroups(t))}
+      </div></td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>

@@ -228,7 +228,7 @@ test('a testcase links features by chip; its verification items follow from them
   await page.click('[data-tab="testcases"]');
 
   const tc = 'TC001';
-  const shown = () => page.$$eval('tr.subrow .vgrp-v [data-peek="item"]', els => els.map(e => e.textContent.trim()));
+  const shown = () => page.$$eval('tr.subrow .vg-v [data-peek="item"]', els => els.map(e => e.textContent.trim()));
   expect(await shown()).toEqual([]);                       // no feature yet, so nothing to run
 
   await page.selectOption(`select[data-pick="tcf"][data-owner="${tc}"]`, 'F01');
@@ -281,10 +281,11 @@ test("a testcase's items are grouped by who judges them", async ({ page }) => {
   });
   await page.click('[data-tab="testcases"]');
 
-  const groups = await page.$$eval('.vgrp', els => els.map(e => [
-    e.querySelector('.vgrp-k').textContent.trim(),
-    [...e.querySelectorAll('.vgrp-v [data-peek="item"]')].map(x => x.textContent.trim()),
-  ]));
+  const groups = await page.$$eval('.vgrid', els => els.flatMap(grid => {
+    const ks = [...grid.querySelectorAll('.vg-k')].map(e => e.textContent.trim());
+    const vs = [...grid.querySelectorAll('.vg-v')].map(e => [...e.querySelectorAll('[data-peek="item"]')].map(x => x.textContent.trim()));
+    return ks.map((k, i) => [k, vs[i]]);
+  }));
   expect(groups).toEqual([
     ['SOM-VIP', ['VI001']],
     ['scoreboard · ref-model', ['VI002', 'VI003']],   // enum order puts the VIP first
