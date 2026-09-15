@@ -179,20 +179,20 @@ test('a column filter works by being a column — no per-key list to forget', as
   await page.evaluate(() => {
     DATA.items = [
       { id:'VI001', name:'rides along', description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
-        exercised:'always-on', status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
+        status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
       { id:'VI002', name:'needs a testcase', description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
-        exercised:'directed', status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
+        status:'editing', phase:'Beta', implemented:'done', notes:'' },
     ];
     render();
   });
   await page.click('[data-tab="items"]');
   const ids = () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
 
-  await page.selectOption('select[data-filter="items"][data-key="exercised"]', 'directed');
+  await page.selectOption('select[data-filter="items"][data-key="phase"]', 'Beta');
   expect(await ids()).toEqual(['VI002']);
-  await page.selectOption('select[data-filter="items"][data-key="exercised"]', 'always-on');
+  await page.selectOption('select[data-filter="items"][data-key="phase"]', 'Alpha');
   expect(await ids()).toEqual(['VI001']);
-  await page.selectOption('select[data-filter="items"][data-key="exercised"]', '');
+  await page.selectOption('select[data-filter="items"][data-key="phase"]', '');
   expect(await ids()).toEqual(['VI001', 'VI002']);
 });
 

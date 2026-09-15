@@ -130,7 +130,7 @@ test('a testcase says which items it runs; an item nobody runs is a warning', as
   });
   const lines = await lint(page);
 
-  const gap = matching(lines, /needs a dedicated testcase/);
+  const gap = matching(lines, /no testcase exercises this item/);
   expect(gap).toHaveLength(1);
   expect(gap[0]).toContain('VI700');
   expect(gap[0]).not.toContain('VI701');            // that one is run
@@ -139,23 +139,24 @@ test('a testcase says which items it runs; an item nobody runs is a warning', as
   expect(await page.evaluate(() => 'item_refs' in DATA.testcases.at(-1))).toBe(false);
 });
 
-test('an always-on check is not missing a testcase — only a directed one is', async ({ page }) => {
+test('an item whose features no testcase runs is a warning', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await patch(page, D => {
     D.meta.phase = 'Alpha';
-    const row = (id, exercised) => ({ id, name: id, description: 'd', feature_refs: ['F01'], oracle: 'o',
-      report: 'r', judged_by: ['scoreboard'], exercised, status: 'finalized', phase: 'Alpha',
+    const row = id => ({ id, name: id, description: 'd', feature_refs: [id === 'VI800' ? 'F01' : 'F02'],
+      oracle: 'o', report: 'r', judged_by: ['scoreboard'], status: 'finalized', phase: 'Alpha',
       implemented: 'done', notes: '' });
-    D.items.push(row('VI800', 'always-on'));     // rides along with any traffic
-    D.items.push(row('VI801', 'directed'));      // needs a crafted condition
-    D.items.push(row('VI802', undefined));       // unset reads as directed
+    D.items.push(row('VI800'));      // F01 is run below
+    D.items.push(row('VI801'));      // F02 is run by nothing
+    D.testcases = [{ id: 'TC800', name: 'tc', feature_refs: ['F01'], type: 'directed', phase: 'Alpha',
+                     status: 'finalized', implemented: 'done', description: 'd',
+                     uvm: { sequences: [] }, tb_gen_hints: '' }];
   });
-  const gap = matching(await lint(page), /needs a dedicated testcase/);
+  const gap = matching(await lint(page), /no testcase exercises this item/);
   expect(gap).toHaveLength(1);
   expect(gap[0]).not.toContain('VI800');
   expect(gap[0]).toContain('VI801');
-  expect(gap[0]).toContain('VI802');
 });
 
 test('a due testcase must be finalized and implemented; a later one is left alone', async ({ page }) => {

@@ -501,10 +501,6 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
       "protocol_vip",
       "reference_model",
       "manual"
-    ],
-    "exercised": [
-      "always-on",
-      "directed"
     ]
   },
   "meta": {
@@ -551,7 +547,7 @@ let DATA = JSON.parse(document.getElementById('vplan-data').textContent);
    plan written before that would report two fields nobody can fill — take them out on read. */
 DATA.comments = DATA.comments || [];                 // review threads: not the plan, but they travel with it
 DATA.meta.people = DATA.meta.people || [];           // who can be tagged
-const ITEM_DROPPED=['category','reviewed'];
+const ITEM_DROPPED=['category','reviewed','exercised'];
 const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
 /* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
@@ -1402,7 +1398,7 @@ VIEW.items=()=>`
     ${headFilter('link to','items','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}
     ${headSearch('items')}</div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}<th>Item</th>${filterTh('Exercised','items','exercised','exercised','width:140px')}
+    <th style="width:26px"></th>${sortTh('ID','items','id','width:64px')}<th>Item</th>
     ${filterTh('Phase','items','phase','phase','width:140px')}
     ${filterTh('Definition','items','status','status','width:140px')}${filterTh('Implemented','items','implemented','implemented','width:140px')}
   </tr></thead><tbody>
@@ -1410,22 +1406,21 @@ VIEW.items=()=>`
     <td class="gripcell">${rowGrip('items',i)}</td>
     <td>${cell(`items.${i}.id`,{cls:'id'})}</td>
     <td>${cell(`items.${i}.name`)}</td>
-    <td>${sel(`items.${i}.exercised`,E.exercised)}</td>
     <td>${sel(`items.${i}.phase`,E.phase,{cls:'phase'})}</td>
     <td>${sel(`items.${i}.status`,E.status)}</td>
     <td>${sel(`items.${i}.implemented`,E.implemented)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('items',i,vi,vis_.length)}</div>${cmtBtn(it.id)}</td>
       <td colspan="2">${field('Link to',`<div class="refcell">${refChips('fref',it.id,it.feature_refs||[])}
         ${linkPicker('fref',it.id,DATA.features.filter(f=>!(it.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td colspan="3">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
+      <td colspan="2">${field('Judged by',togChips(`items.${i}.judged_by`,E.judged_by,it.judged_by))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
+      <td colspan="4">${descField('Description',`items.${i}.description`,it,'what must hold, and how it is judged')}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
+      <td colspan="4">${field('Oracle',cell(`items.${i}.oracle`,{cls:'boxed',ph:'what the result is compared against'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Report',cell(`items.${i}.report`,{cls:'boxed',ph:'how a violation is surfaced — e.g. uvm_error on the offending request'}))}</td></tr>
+      <td colspan="4">${field('Report',cell(`items.${i}.report`,{cls:'boxed',ph:'how a violation is surfaced — e.g. uvm_error on the offending request'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
+      <td colspan="4">${field('Notes',cell(`items.${i}.notes`,{cls:'boxed',ph:'—'}))}</td></tr>`).join('')}
   </tbody></table></div></div>
   ${sugPanel('item')}
   ${auditPanel('item')}`;
@@ -1436,7 +1431,7 @@ function nextId(arr,prefix,pad){
   return prefix+String(n+1).padStart(pad,'0');
 }
 const TEMPLATE={
-  item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],exercised:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
+  item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
     uvm:{sequences:[]},
@@ -1491,7 +1486,7 @@ function lint(){
   const itemUnD =grp('err','item','definition is not finalized');
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
-  const itemNoTC=grp('warn','item','needs a dedicated testcase — none names it');
+  const itemNoTC=grp('warn','item','no testcase exercises this item');
   const tcNoF   =grp('err','testcase','no feature is linked — the test verifies nothing');
   const tcUnD   =grp('err','testcase','definition is not finalized');
   const tcUnI   =grp('err','testcase','implemented is not done');
@@ -1564,9 +1559,7 @@ function lint(){
   const runItems=new Set(DATA.testcases.flatMap(tcItems));
   const runFeats=new Set(DATA.testcases.flatMap(t=>t.feature_refs||[]));
   DATA.features.forEach(f=>{ if(due(f) && !runFeats.has(f.id)) featNoTC.ids.push(f.id); });
-  /* An always-on check rides along with whatever traffic a test happens to make; only an item that
-     needs a crafted condition can be said to be missing a testcase. Unset reads as 'directed'. */
-  DATA.items.forEach(it=>{ if(due(it) && (it.exercised||'directed')==='directed' && !runItems.has(it.id)) itemNoTC.ids.push(it.id); });
+  DATA.items.forEach(it=>{ if(due(it) && !runItems.has(it.id)) itemNoTC.ids.push(it.id); });
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!due(t)) return;                      // a Beta test is not this plan's problem while it is on Alpha
