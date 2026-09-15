@@ -204,3 +204,19 @@ test('a plan written before the columns went loses those two keys on read', asyn
   });
   expect(left).toEqual(['id', 'name', 'notes']);
 });
+
+test('a testcase type can be added from its column header, like a category', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => { DATA.$enums.test_type = ['directed']; DATA.testcases = [TEMPLATE.testcase([])]; render(); });
+  await page.click('[data-tab="testcases"]');
+
+  const opts = () => page.$$eval('select[data-path="testcases.0.type"] option', els => els.map(e => e.textContent.trim()));
+  expect(await opts()).toEqual(['directed']);
+
+  const add = page.locator('input[data-newopt="test_type"]');
+  await add.fill('regression');
+  await add.press('Enter');
+  expect(await opts()).toEqual(['directed', 'regression']);
+  expect(await page.evaluate(() => DATA.$enums.test_type)).toEqual(['directed', 'regression']);
+});
