@@ -559,7 +559,7 @@ const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
 /* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
    plan decision). Same reason as above: a stored key nobody can edit is a field nobody can finish. */
-const TC_DROPPED=['owner','seeds'];
+const TC_DROPPED=['owner','seeds','priority'];
 const stripTestcase=r=>{ TC_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.testcases||[]).forEach(stripTestcase);
 let TAB  = 'features';
@@ -1287,27 +1287,29 @@ VIEW.testcases=()=>`
     <div class="spacer"></div>
     ${headSearch('testcases')}</div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th style="width:26px"></th>${sortTh('ID','testcases','id','width:64px')}<th>Test</th>
-    ${filterTh('Type','testcases','type','test_type','width:150px')}
-    ${filterTh('Priority','testcases','priority','priority','width:110px')}
-    ${filterTh('Definition','testcases','status','status','width:150px')}
+    <th style="width:26px"></th>${sortTh('ID','testcases','id','width:64px')}
+    ${filterTh('Type','testcases','type','test_type','width:150px')}<th>Test</th>
+    ${filterTh('Phase','testcases','phase','phase','width:134px')}
+    ${filterTh('Definition','testcases','status','status','width:134px')}
+    ${filterTh('Implemented','testcases','implemented','implemented','width:134px')}
   </tr></thead><tbody>
   ${rowsOf('testcases').map(({r:t,i},vi,vis_)=>{
     const p=`testcases.${i}`;
     return `<tr class="row">
     <td class="gripcell">${rowGrip('testcases',i)}</td>
     <td>${cell(`${p}.id`,{cls:'id'})}</td>
-    <td>${cell(`${p}.name`,{cls:'mono'})}</td>
     <td>${sel(`${p}.type`,E.test_type)}</td>
-    <td>${sel(`${p}.priority`,E.priority)}</td>
-    <td>${sel(`${p}.status`,E.status)}</td></tr>
+    <td>${cell(`${p}.name`,{cls:'mono'})}</td>
+    <td>${sel(`${p}.phase`,E.phase,{cls:'phase'})}</td>
+    <td>${sel(`${p}.status`,E.status)}</td>
+    <td>${sel(`${p}.implemented`,E.implemented)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
       <td colspan="2">${field('Features',cell(`${p}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'}))}</td>
-      <td colspan="2">${field('Items',cell(`${p}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001, VI002'}),'이 테스트가 겨냥한 검증 항목')}</td></tr>
+      <td colspan="3">${field('Items',cell(`${p}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001, VI002'}),'이 테스트가 겨냥한 검증 항목')}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="4">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
+      <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="4"><div class="grid">
+      <td colspan="5"><div class="grid">
         ${field('UVM test class',cell(`${p}.uvm.test_class`,{cls:'mono'}),'→ class X extends base')}
         ${field('Base test',cell(`${p}.uvm.base_test`,{cls:'mono'}))}
         ${field('Virtual sequence',cell(`${p}.uvm.virtual_sequence`,{cls:'mono'}))}
@@ -1315,7 +1317,7 @@ VIEW.testcases=()=>`
         ${Object.keys(t.config||{}).map(k=>field(k,cell(`${p}.config.${k}`,{cls:'mono'}))).join('')}
       </div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="4"><div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
+      <td colspan="5"><div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
       <table><thead><tr><th style="width:22%">Agent</th><th style="width:28%">Sequence class</th><th>Params</th><th></th></tr></thead><tbody>
       ${(t.uvm.sequences||[]).map((q,j)=>`<tr class="row">
         <td>${cell(`${p}.uvm.sequences.${j}.agent`,{cls:'mono'})}</td>
@@ -1324,7 +1326,7 @@ VIEW.testcases=()=>`
         <td class="actions"><div class="idbtns">${rowDupDel(`${p}.uvm.sequences`,j,j,(t.uvm.sequences||[]).length)}</div></td></tr>`).join('')}
       </tbody></table></div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="4"><div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
+      <td colspan="5"><div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
       <table><thead><tr><th style="width:16%">Type</th><th>Description</th><th style="width:22%">Component / ref</th><th></th></tr></thead><tbody>
       ${(t.checks||[]).map((c,j)=>`<tr class="row">
         <td>${sel(`${p}.checks.${j}.type`,E.check_type)}</td>
@@ -1333,10 +1335,10 @@ VIEW.testcases=()=>`
         <td class="actions"><div class="idbtns">${rowDupDel(`${p}.checks`,j,j,(t.checks||[]).length)}</div></td></tr>`).join('')}
       </tbody></table></div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="4">${field('Pass criteria',cell(`${p}.pass_criteria`,{cls:'boxed',ph:'무엇이 참이면 이 테스트가 통과인가'}))}</td></tr>
+      <td colspan="5">${field('Pass criteria',cell(`${p}.pass_criteria`,{cls:'boxed',ph:'무엇이 참이면 이 테스트가 통과인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="2">${field('Coverage refs',cell(`${p}.coverage_refs`,{kind:'csv',cls:'mono',ph:'CG01, SVA02'}))}</td>
-      <td colspan="2">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
+      <td colspan="3">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
   }).join('')}
   </tbody></table></div></div>`;
 
@@ -1437,7 +1439,7 @@ function commonBaseTest(){
 const TEMPLATE={
   item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],exercised:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
-  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],priority:'P1',type:'directed',status:'not started',description:'',
+  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
     config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
     checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],tb_gen_hints:''}),
