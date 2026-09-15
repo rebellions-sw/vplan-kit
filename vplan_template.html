@@ -44,7 +44,6 @@
       detail. Never propose a rejected item again.
    4. Cross references are by ID string:
         testcases[].feature_refs[]   -> features[].id
-        testcases[].coverage_refs[]  -> coverage.functional[].id | coverage.assertions[].id
         coverage.functional[].feature_refs[] -> features[].id
       Keep them consistent. The "Lint" button in the UI checks this.
    5. Enum values are fixed. See `$enums` at the top of the JSON.
@@ -54,7 +53,6 @@
    A generator should be able to emit a full UVM TB from this JSON alone:
      testcases[].uvm      -> uvm_test class, base test, virtual sequence, per-agent sequences
                              (the agent inventory is the set of `sequences[].agent` names used anywhere)
-     testcases[].config   -> plusargs & uvm_config_db settings for that test
      testcases[].checks   -> what the scoreboard / assertion / RAL must verify (`ref` names the component)
      testcases[].tb_gen_hints -> TB-side requirements not visible in any other field
      coverage.functional  -> covergroup skeletons (covergroup / sample_point / bins)
@@ -559,7 +557,7 @@ const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
 /* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
    plan decision). Same reason as above: a stored key nobody can edit is a field nobody can finish. */
-const TC_DROPPED=['owner','seeds','priority'];
+const TC_DROPPED=['owner','seeds','priority','coverage_refs','pass_criteria','config'];
 const stripTestcase=r=>{ TC_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.testcases||[]).forEach(stripTestcase);
 let TAB  = 'features';
@@ -1314,7 +1312,6 @@ VIEW.testcases=()=>`
         ${field('Base test',cell(`${p}.uvm.base_test`,{cls:'mono'}))}
         ${field('Virtual sequence',cell(`${p}.uvm.virtual_sequence`,{cls:'mono'}))}
         ${field('Dependencies',cell(`${p}.dependencies`,{kind:'csv',cls:'mono',ph:'TC001'}))}
-        ${Object.keys(t.config||{}).map(k=>field(k,cell(`${p}.config.${k}`,{cls:'mono'}))).join('')}
       </div></td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5"><div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
@@ -1335,10 +1332,7 @@ VIEW.testcases=()=>`
         <td class="actions"><div class="idbtns">${rowDupDel(`${p}.checks`,j,j,(t.checks||[]).length)}</div></td></tr>`).join('')}
       </tbody></table></div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Pass criteria',cell(`${p}.pass_criteria`,{cls:'boxed',ph:'무엇이 참이면 이 테스트가 통과인가'}))}</td></tr>
-    <tr class="subrow"><td></td><td></td>
-      <td colspan="2">${field('Coverage refs',cell(`${p}.coverage_refs`,{kind:'csv',cls:'mono',ph:'CG01, SVA02'}))}</td>
-      <td colspan="3">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
+      <td colspan="5">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
   }).join('')}
   </tbody></table></div></div>`;
 
@@ -1441,8 +1435,7 @@ const TEMPLATE={
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
-    config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
-    checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],tb_gen_hints:''}),
+    checks:[],dependencies:[],tb_gen_hints:''}),
   seq:()=>({agent:'',seq_class:'',params:''}),
   check:()=>({type:'scoreboard',description:'',ref:''}),
   cg:a=>({id:nextId(a,'CG',2),covergroup:'',sample_point:'',bins:'',target:100,feature_refs:[],status:'open',notes:''}),
@@ -1572,7 +1565,6 @@ function lint(){
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     (t.item_refs||[]).forEach(r=>{ if(!vids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
-    (t.coverage_refs||[]).forEach(r=>{ if(!cids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     (t.dependencies||[]).forEach(r=>{ if(!tids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!t.uvm||!t.uvm.test_class) tcNoCls.ids.push(t.id);
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
