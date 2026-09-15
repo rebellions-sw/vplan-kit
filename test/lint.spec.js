@@ -171,15 +171,27 @@ test('a due testcase must be finalized and implemented; a later one is left alon
   });
   const lines = await lint(page);
 
-  const def = matching(lines, /testcase definition is not finalized/);
+  const def = matching(lines, /TESTCASE definition is not finalized/);
   expect(def).toHaveLength(1);
   expect(def[0]).toContain('TC010(editing)');
   expect(def[0]).not.toContain('TC013');
 
-  const impl = matching(lines, /testcase implemented is not done/);
+  const impl = matching(lines, /TESTCASE implemented is not done/);
   expect(impl).toHaveLength(1);
   expect(impl[0]).toContain('TC011(wip)');
   expect(impl[0]).not.toContain('TC013');
 
   expect(matching(lines, /TC012/)).toHaveLength(0);
+});
+
+test('an open comment is no longer a lint line — the rail counts them', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.me = 'nara.cho';
+    D.comments = [{ cid: 'C001', target: 'F01', author: 'nara.cho', to: [], text: 'open one',
+                    created: '2026-09-15 10:00:00', resolved: false }];
+  });
+  expect(matching(await lint(page), /review comments/)).toHaveLength(0);
+  await expect(page.locator('.rail-head .badge').first()).toHaveText('1 open');
 });

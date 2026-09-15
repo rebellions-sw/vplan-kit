@@ -72,15 +72,17 @@ test('the rail shows open or resolved, one or the other', async ({ page }) => {
   await expect(page.locator('[data-act="cmt-f-mine"]')).toHaveCount(0);      // the @me filter is gone
 });
 
-test('an open comment is a lint warning; resolving it clears the line', async ({ page }) => {
+test('an open comment is counted in the rail, not in lint', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await beMe(page, 'nara.cho');
   await writeComment(page, 'F01', '이거 확인 필요');
 
-  expect((await lint(page)).filter(l => /review comments are still open/.test(l))).toHaveLength(1);
+  await expect(page.locator('.rail-head .badge').first()).toHaveText('1 open');
+  expect((await lint(page)).filter(l => /review comments/.test(l))).toHaveLength(0);
+
   await page.locator('.thread[data-thread="F01"] [data-act="cmt-resolve"]').click();
-  expect((await lint(page)).filter(l => /review comments are still open/.test(l))).toHaveLength(0);
+  await expect(page.locator('.rail-head .badge').first()).toHaveText('0 open');
 });
 
 test('a snapshot takes comments but still refuses to edit a row', async ({ page }) => {
