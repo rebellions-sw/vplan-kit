@@ -644,9 +644,11 @@ function togChips(path,values,cur){
    what the rest of the plan cites, and clicking one opens the peek drawer on that row. `Related to` is
    read, not chased — it shows the command's name and is plain text, since the name IS the information.
    Both keep the × that unlinks; an unnamed or deleted row falls back to its id so no chip is blank. */
+/* which side of the link a chip shows, per kind: vref/tcv point at items, the rest at features */
+const PEEK_KIND={vref:'item',tcv:'item',fref:'feature',rel:'feature',tcf:'feature'};
 function refChips(kind,ownerId,ids){
   if(!ids.length) return `<span class="badge b-mut">none</span>`;
-  const peek=kind==='vref'?'item':'feature';
+  const peek=PEEK_KIND[kind]||'feature';
   return ids.map(id=>{
     const row=(peek==='item'?DATA.items:DATA.features).find(r=>r.id===id);
     const gone=row?'':' — 플랜에 없음';
@@ -674,6 +676,13 @@ function relLink(featureId,targetId,on){
   const refs=new Set(f.related_refs||[]);
   on?refs.add(targetId):refs.delete(targetId);
   f.related_refs=[...refs];
+}
+/* testcase → feature / item. The list lives on the testcase, so owner is the TC and value the row. */
+function tcLink(tcId,rowId,on,key){
+  const t=DATA.testcases.find(x=>x.id===tcId); if(!t) return;
+  const refs=new Set(t[key]||[]);
+  on?refs.add(rowId):refs.delete(rowId);
+  t[key]=[...refs];
 }
 function setLink(featureId,itemId,on){
   const it=DATA.items.find(x=>x.id===itemId); if(!it) return;
@@ -1310,8 +1319,10 @@ VIEW.testcases=()=>`
     <td>${sel(`${p}.status`,E.status)}</td>
     <td>${sel(`${p}.implemented`,E.implemented)}</td></tr>
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
-      <td colspan="2">${field('Features',cell(`${p}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'}))}</td>
-      <td colspan="3">${field('Items',cell(`${p}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001, VI002'}),'이 테스트가 겨냥한 검증 항목')}</td></tr>
+      <td colspan="2">${field('Features',`<div class="refcell">${refChips('tcf',t.id,t.feature_refs||[])}
+        ${linkPicker('tcf',t.id,DATA.features.filter(f=>!(t.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
+      <td colspan="3">${field('Items',`<div class="refcell">${refChips('tcv',t.id,t.item_refs||[])}
+        ${linkPicker('tcv',t.id,DATA.items.filter(x=>!(t.item_refs||[]).includes(x.id)),'+ VI')}</div>`,'이 테스트가 겨냥한 검증 항목')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1446,6 +1457,7 @@ function renumberIds(){
   const put=(row,nid)=>{ if(row.id&&row.id!==nid) map[row.id]=nid; row.id=nid; };
   DATA.features.forEach((f,i)=>put(f,'F'+String(i+1).padStart(2,'0')));
   DATA.items.forEach((it,i)=>put(it,'VI'+String(i+1).padStart(3,'0')));
+  DATA.testcases.forEach((t,i)=>put(t,'TC'+String(i+1).padStart(3,'0')));
   const m=id=>map[id]||id;
   const remap=a=>(a||[]).map(m);
   DATA.items.forEach(it=>{ it.feature_refs=remap(it.feature_refs); });
@@ -1456,6 +1468,7 @@ function renumberIds(){
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
   (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target);
     if(x.fix&&x.fix.feature_refs) x.fix.feature_refs=remap(x.fix.feature_refs); });
+  (DATA.comments||[]).forEach(c=>{ if(c.target) c.target=m(c.target); });   // a thread follows its row
   Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
     ['vref','fref','rel'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
   });
@@ -1898,6 +1911,8 @@ document.addEventListener('click',e=>{
   if(act==='unlink'){
     const kind=b.dataset.kind;
     if(kind==='rel') relLink(b.dataset.owner,b.dataset.id,false);
+    else if(kind==='tcf') tcLink(b.dataset.owner,b.dataset.id,false,'feature_refs');
+    else if(kind==='tcv') tcLink(b.dataset.owner,b.dataset.id,false,'item_refs');
     else if(kind==='vref') setLink(b.dataset.owner,b.dataset.id,false);      // feature row: drop an item
     else setLink(b.dataset.id,b.dataset.owner,false);                        // item row: drop a feature
     markDirty(); render(); return;
@@ -2072,6 +2087,8 @@ document.addEventListener('change',e=>{
   if(isSnapshot()){ toast('스냅샷 파일입니다 — 수정할 수 없습니다'); render(); return; }
   const owner=s.dataset.owner, pick=s.dataset.pick;
   if(pick==='rel')       relLink(owner,s.value,true);             // feature side: pick a command feature
+  else if(pick==='tcf')  tcLink(owner,s.value,true,'feature_refs');   // testcase side: pick a feature
+  else if(pick==='tcv')  tcLink(owner,s.value,true,'item_refs');      // testcase side: pick an item
   else if(pick==='vref') setLink(owner,s.value,true);             // feature side: pick an item
   else                   setLink(s.value,owner,true);             // item side: pick a feature
   markDirty(); render();
