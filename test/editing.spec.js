@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openVplan, data, setCell, patch , seed} from './helpers.js';
+import { openVplan, data, setCell, patch , seed, acceptDialogs } from './helpers.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -117,6 +117,7 @@ test('a row cannot be dragged into a different table', async ({ page }) => {
 });
 
 test('a feature and a verification item can be linked from either side, several at a time', async ({ page }) => {
+  acceptDialogs(page);
   await openVplan(page);
   await seed(page);
   await page.evaluate(() => { DATA.items = []; render(); });   // this test builds its own items
@@ -222,6 +223,7 @@ test('a testcase type can be added from its column header, like a category', asy
 });
 
 test('a testcase links features by chip; its verification items follow from them', async ({ page }) => {
+  acceptDialogs(page);
   await openVplan(page);
   await seed(page);
   await page.evaluate(() => { DATA.testcases = [TEMPLATE.testcase([])]; render(); });
@@ -292,4 +294,37 @@ test("a testcase's items are grouped by who judges them", async ({ page }) => {
     ['STI VIP', ['VI001', 'VI004']],                  // SOM-VIP / IP-VIP / both all read as one
     ['scoreboard + ref-model', ['VI002', 'VI003']],
   ]);
+});
+
+test('unlinking asks first — every link kind, on every tab', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.features[1].related_refs = ['F01'];   // Related to renders on non-command rows, pointing at a command
+    DATA.testcases = [{ ...TEMPLATE.testcase([]), feature_refs: ['F01'] }];
+    render();
+  });
+
+  const refs = () => page.evaluate(() => [
+    DATA.items[0].feature_refs.length,        // fref / vref both edit this list
+    DATA.features[1].related_refs.length,     // rel
+    DATA.testcases[0].feature_refs.length,    // tcf
+  ]);
+  expect(await refs()).toEqual([1, 1, 1]);
+
+  // dismissing keeps every one of them
+  page.on('dialog', d => d.dismiss());
+  await page.click('.reflink .x[data-kind="vref"]');
+  await page.click('.reflink .x[data-kind="rel"]');
+  await page.click('[data-tab="items"]');
+  await page.click('.reflink .x[data-kind="fref"]');
+  await page.click('[data-tab="testcases"]');
+  await page.click('.reflink .x[data-kind="tcf"]');
+  expect(await refs()).toEqual([1, 1, 1]);
+
+  // accepting drops the one you clicked
+  page.removeAllListeners('dialog');
+  page.on('dialog', d => d.accept());
+  await page.click('.reflink .x[data-kind="tcf"]');
+  expect(await refs()).toEqual([1, 1, 0]);
 });

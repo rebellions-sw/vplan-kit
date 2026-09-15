@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openVplan, seed, lint } from './helpers.js';
+import { openVplan, seed, lint , acceptDialogs } from './helpers.js';
 
 /* A feature row's link area is split in two: Verified by (the items) and Related to — other features,
    and only ones whose category is command. Stored one-way on the feature that points. */
@@ -32,6 +32,7 @@ test('the picker offers command features only, and command rows have no Related 
 });
 
 test('picking one adds a chip, and the × removes it', async ({ page }) => {
+  acceptDialogs(page);
   await openVplan(page);
   await seed(page);
   await threeFeatures(page);

@@ -1932,6 +1932,8 @@ document.addEventListener('click',e=>{
   }
   if(act==='unlink'){
     const kind=b.dataset.kind;
+    // the × sits right beside the id you clicked to read — ask before dropping the link
+    if(!confirm(`${b.dataset.owner} ↔ ${b.dataset.id} 연결을 끊을까요?`)) return;
     if(kind==='rel') relLink(b.dataset.owner,b.dataset.id,false);
     else if(kind==='tcf') tcLink(b.dataset.owner,b.dataset.id,false,'feature_refs');
     else if(kind==='vref') setLink(b.dataset.owner,b.dataset.id,false);      // feature row: drop an item

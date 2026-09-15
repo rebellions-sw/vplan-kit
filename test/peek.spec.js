@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openVplan, seed } from './helpers.js';
+import { openVplan, seed , acceptDialogs } from './helpers.js';
 
 /* A feature row lists the items that verify it by id. Clicking one opens a read-only drawer over the
    table's right side, so you can read the item without leaving the feature you are working on. */
@@ -58,6 +58,7 @@ test('Open ↗ jumps to the row on its own tab and closes the drawer', async ({ 
 });
 
 test('the × on a chip still unlinks, and a chip for a deleted row says so', async ({ page }) => {
+  acceptDialogs(page);
   await openVplan(page);
   await seed(page);
 

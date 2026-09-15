@@ -88,3 +88,8 @@ export async function seed(page) {
     render();
   });
 }
+
+/** Accept every confirm() the page raises — unlinking and deleting both ask first. */
+export function acceptDialogs(page) {
+  page.on('dialog', d => d.accept());
+}
