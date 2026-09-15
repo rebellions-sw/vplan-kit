@@ -1171,7 +1171,7 @@ function railPane(){
         title="아직 해결되지 않은 코멘트">open ${open}</button>
       <button class="btn sm${CMTVIEW==='resolved'?' primary':''}" data-act="cmt-view" data-view="resolved"
         title="해결된 코멘트">resolved ${done}</button>
-      <div class="spacer"></div><button class="btn sm" data-act="cmt" data-target="plan" title="플랜 전체에 코멘트">+ 플랜</button></div>
+      <div class="spacer"></div><button class="btn sm" data-act="cmt" data-target="plan" title="특정 행이 아닌, 플랜 전체에 대한 코멘트">+ 추가</button></div>
     <div class="rail-body">${vis.map(thread).join('')
       ||'<span class="hint">아직 코멘트가 없습니다 — 각 행의 💬 를 누르면 여기에 스레드가 생깁니다.</span>'}</div>
   </div>`;
