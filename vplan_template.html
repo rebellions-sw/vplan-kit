@@ -1492,6 +1492,8 @@ function lint(){
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
   const itemNoTC=grp('warn','item','needs a dedicated testcase — none names it');
+  const tcUnD   =grp('err','plan','testcase definition is not finalized');
+  const tcUnI   =grp('err','plan','testcase implemented is not done');
   const tcNoSeq =grp('warn','plan','testcase has no sequence');
   const cgNoRef =grp('warn','plan','covergroup has no feature');
   const svaNoMod=grp('warn','plan','assertion has no bind module');
@@ -1567,6 +1569,9 @@ function lint(){
   DATA.items.forEach(it=>{ if(due(it) && (it.exercised||'directed')==='directed' && !runItems.has(it.id)) itemNoTC.ids.push(it.id); });
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
+    if(!due(t)) return;                      // a Beta test is not this plan's problem while it is on Alpha
+    if(t.status!=='finalized')  tcUnD.ids.push(`${t.id}(${t.status||'—'})`);
+    if(t.implemented!=='done')  tcUnI.ids.push(`${t.id}(${t.implemented||'—'})`);
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
   });
   DATA.coverage.functional.forEach(g=>{ if(!(g.feature_refs||[]).length) cgNoRef.ids.push(g.id); });

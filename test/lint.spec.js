@@ -153,3 +153,33 @@ test('an always-on check is not missing a testcase — only a directed one is', 
   expect(gap[0]).toContain('VI801');
   expect(gap[0]).toContain('VI802');
 });
+
+test('a due testcase must be finalized and implemented; a later one is left alone', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'Alpha';
+    const tc = (id, phase, status, implemented) => ({ ...D.testcases[0], id, name: id, feature_refs: ['F01'],
+      type: 'directed', phase, status, implemented, description: 'd',
+      uvm: { sequences: [{ agent: 'a', seq_class: 's', params: '' }] }, tb_gen_hints: '' });
+    D.testcases = [
+      tc('TC010', 'pre-Alpha', 'editing',   'done'),   // due, not finalized
+      tc('TC011', 'Alpha',     'finalized', 'wip'),    // due, not implemented
+      tc('TC012', 'Alpha',     'finalized', 'done'),   // due and done — silent
+      tc('TC013', 'Beta',      'editing',   'todo'),   // not due yet — silent
+    ];
+  });
+  const lines = await lint(page);
+
+  const def = matching(lines, /testcase definition is not finalized/);
+  expect(def).toHaveLength(1);
+  expect(def[0]).toContain('TC010(editing)');
+  expect(def[0]).not.toContain('TC013');
+
+  const impl = matching(lines, /testcase implemented is not done/);
+  expect(impl).toHaveLength(1);
+  expect(impl[0]).toContain('TC011(wip)');
+  expect(impl[0]).not.toContain('TC013');
+
+  expect(matching(lines, /TC012/)).toHaveLength(0);
+});
