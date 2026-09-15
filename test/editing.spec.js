@@ -275,6 +275,8 @@ test("a testcase's items are grouped by who judges them", async ({ page }) => {
         status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
       { id:'VI003', name:'c', description:'', feature_refs:['F01'], oracle:'', report:'', judged_by:['scoreboard','ref-model'],
         status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
+      { id:'VI004', name:'d', description:'', feature_refs:['F01'], oracle:'', report:'', judged_by:['SOM-VIP','IP-VIP'],
+        status:'finalized', phase:'Alpha', implemented:'done', notes:'' },
     ];
     DATA.testcases = [{ ...TEMPLATE.testcase([]), feature_refs:['F01'] }];
     render();
@@ -287,7 +289,7 @@ test("a testcase's items are grouped by who judges them", async ({ page }) => {
     return ks.map((k, i) => [k, vs[i]]);
   }));
   expect(groups).toEqual([
-    ['SOM-VIP', ['VI001']],
-    ['scoreboard · ref-model', ['VI002', 'VI003']],   // enum order puts the VIP first
+    ['STI VIP', ['VI001', 'VI004']],                  // SOM-VIP / IP-VIP / both all read as one
+    ['scoreboard · ref-model', ['VI002', 'VI003']],
   ]);
 });

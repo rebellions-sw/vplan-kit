@@ -1119,14 +1119,18 @@ const rowOfId=id=>(String(id).startsWith('VI')?DATA.items:DATA.features).find(r=
 function tcItemGroups(t){
   const v=tcItems(t);
   if(!v.length) return '<span class="badge b-mut">none</span>';
+  /* SOM-VIP, IP-VIP and both-at-once are one answer to "who judges this" — the VIPs — and splitting
+     them made three thin rows saying the same thing. */
+  const VIPS=new Set(['SOM-VIP','IP-VIP']);
   const g=new Map();
   v.forEach(id=>{
     const it=DATA.items.find(x=>x.id===id);
-    const key=((it&&it.judged_by)||[]).join(' · ')||'—';
+    const by=(it&&it.judged_by)||[];
+    const key=by.length&&by.every(x=>VIPS.has(x)) ? 'STI VIP' : (by.join(' · ')||'—');
     if(!g.has(key)) g.set(key,[]);
     g.get(key).push(id);
   });
-  const rank=k=>((DATA.$enums.judged_by||[]).indexOf(k.split(' · ')[0])+1)||99;
+  const rank=k=>k==='STI VIP'?0:(((DATA.$enums.judged_by||[]).indexOf(k.split(' · ')[0])+1)||99);
   return `<div class="vgrid">${[...g.entries()].sort((a,b)=>rank(a[0])-rank(b[0])||a[0].localeCompare(b[0]))
     .map(([k,ids])=>`<span class="vg-k">${esc(k)}</span><span class="vg-v">${ids.map(id=>
       `<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
