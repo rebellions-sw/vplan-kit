@@ -201,8 +201,8 @@ test('the testcase list filters by the feature a test points at', async ({ page 
   await seed(page);
   await page.evaluate(() => {
     DATA.testcases = [
-      { ...TEMPLATE.testcase([]), id:'TC001', name:'tc_one',   feature_refs:['F01'], item_refs:[] },
-      { ...TEMPLATE.testcase([]), id:'TC002', name:'tc_two',   feature_refs:['F02'], item_refs:[] },
+      { ...TEMPLATE.testcase([]), id:'TC001', name:'tc_one',   feature_refs:['F01'] },
+      { ...TEMPLATE.testcase([]), id:'TC002', name:'tc_two',   feature_refs:['F02'] },
       { ...TEMPLATE.testcase([]), id:'TC003', name:'tc_three', feature_refs:[],      item_refs:[] },
     ];
     render();

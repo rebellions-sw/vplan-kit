@@ -557,7 +557,7 @@ const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
 /* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
    plan decision). Same reason as above: a stored key nobody can edit is a field nobody can finish. */
-const TC_DROPPED=['owner','seeds','priority','coverage_refs','pass_criteria','config','dependencies'];
+const TC_DROPPED=['owner','seeds','priority','coverage_refs','pass_criteria','config','dependencies','item_refs'];
 const UVM_DROPPED=['test_class','base_test','virtual_sequence'];
 const stripTestcase=r=>{
   TC_DROPPED.forEach(k=>delete r[k]);
@@ -644,8 +644,8 @@ function togChips(path,values,cur){
    what the rest of the plan cites, and clicking one opens the peek drawer on that row. `Related to` is
    read, not chased — it shows the command's name and is plain text, since the name IS the information.
    Both keep the × that unlinks; an unnamed or deleted row falls back to its id so no chip is blank. */
-/* which side of the link a chip shows, per kind: vref/tcv point at items, the rest at features */
-const PEEK_KIND={vref:'item',tcv:'item',fref:'feature',rel:'feature',tcf:'feature'};
+/* which side of the link a chip shows, per kind: vref points at items, the rest at features */
+const PEEK_KIND={vref:'item',fref:'feature',rel:'feature',tcf:'feature'};
 function refChips(kind,ownerId,ids){
   if(!ids.length) return `<span class="badge b-mut">none</span>`;
   const peek=PEEK_KIND[kind]||'feature';
@@ -1107,6 +1107,12 @@ function cmtBtn(target){
     data-target="${esc(target)}" title="${tip}">💬${n?`<span class="cmt-n">${n}</span>`:''}</button>`;
 }
 const rowOfId=id=>(String(id).startsWith('VI')?DATA.items:DATA.features).find(r=>r.id===id);
+/* A testcase names features; the verification items it exercises follow from them. Derived, never
+   stored — otherwise the two lists drift and the plan has two answers to the same question. */
+function tcItems(t){
+  const fs=new Set(t.feature_refs||[]);
+  return DATA.items.filter(it=>(it.feature_refs||[]).some(f=>fs.has(f))).map(it=>it.id);
+}
 function atText(t){ return esc(t).replace(/@([\w.\-가-힣]+)/g,'<span class="at">@$1</span>'); }
 function cmtCard(c,i){
   return `<div class="cmt${c.resolved?' done':''}">
@@ -1322,8 +1328,10 @@ VIEW.testcases=()=>`
     <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
       <td colspan="2">${field('Features',`<div class="refcell">${refChips('tcf',t.id,t.feature_refs||[])}
         ${linkPicker('tcf',t.id,DATA.features.filter(f=>!(t.feature_refs||[]).includes(f.id)),'+ F')}</div>`)}</td>
-      <td colspan="3">${field('Items',`<div class="refcell">${refChips('tcv',t.id,t.item_refs||[])}
-        ${linkPicker('tcv',t.id,DATA.items.filter(x=>!(t.item_refs||[]).includes(x.id)),'+ VI')}</div>`,'이 테스트가 겨냥한 검증 항목')}</td></tr>
+      <td colspan="3">${field('Verification Items',`<div class="refcell">${(()=>{const v=tcItems(t);
+        return v.length?v.map(id=>`<span class="reflink"><button class="peek" data-act="peek" data-peek="item"
+          data-id="${esc(id)}" title="${esc(id)} · 내용 보기">${esc(id)}</button></span>`).join('')
+        :'<span class="badge b-mut">none</span>';})()}</div>`,'연결된 feature의 item — 자동')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
     <tr class="subrow"><td></td><td></td>
@@ -1440,7 +1448,7 @@ function nextId(arr,prefix,pad){
 const TEMPLATE={
   item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],exercised:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
-  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
+  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
     uvm:{sequences:[]},
     checks:[],tb_gen_hints:''}),
   seq:()=>({agent:'',seq_class:'',params:''}),
@@ -1463,7 +1471,7 @@ function renumberIds(){
   const remap=a=>(a||[]).map(m);
   DATA.items.forEach(it=>{ it.feature_refs=remap(it.feature_refs); });
   DATA.features.forEach(f=>{ if(f.related_refs) f.related_refs=remap(f.related_refs); });
-  DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); t.item_refs=remap(t.item_refs); });
+  DATA.testcases.forEach(t=>{ t.feature_refs=remap(t.feature_refs); });
   DATA.coverage.functional.forEach(g=>{ g.feature_refs=remap(g.feature_refs); });
   DATA.coverage.assertions.forEach(a=>{ a.feature_refs=remap(a.feature_refs); });
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
@@ -1565,14 +1573,12 @@ function lint(){
   });
   DATA.items.forEach(it=>{ if(due(it) && blanks(it).length) gapI.ids.push(it.id); });
 
-  const vids=new Set(ids(DATA.items));
-  const runItems=new Set(DATA.testcases.flatMap(t=>t.item_refs||[]));
+  const runItems=new Set(DATA.testcases.flatMap(tcItems));
   /* An always-on check rides along with whatever traffic a test happens to make; only an item that
      needs a crafted condition can be said to be missing a testcase. Unset reads as 'directed'. */
   DATA.items.forEach(it=>{ if(due(it) && (it.exercised||'directed')==='directed' && !runItems.has(it.id)) itemNoTC.ids.push(it.id); });
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
-    (t.item_refs||[]).forEach(r=>{ if(!vids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
     if(!(t.checks||[]).length) tcNoChk.ids.push(t.id);
   });
@@ -1913,7 +1919,6 @@ document.addEventListener('click',e=>{
     const kind=b.dataset.kind;
     if(kind==='rel') relLink(b.dataset.owner,b.dataset.id,false);
     else if(kind==='tcf') tcLink(b.dataset.owner,b.dataset.id,false,'feature_refs');
-    else if(kind==='tcv') tcLink(b.dataset.owner,b.dataset.id,false,'item_refs');
     else if(kind==='vref') setLink(b.dataset.owner,b.dataset.id,false);      // feature row: drop an item
     else setLink(b.dataset.id,b.dataset.owner,false);                        // item row: drop a feature
     markDirty(); render(); return;
@@ -2089,7 +2094,6 @@ document.addEventListener('change',e=>{
   const owner=s.dataset.owner, pick=s.dataset.pick;
   if(pick==='rel')       relLink(owner,s.value,true);             // feature side: pick a command feature
   else if(pick==='tcf')  tcLink(owner,s.value,true,'feature_refs');   // testcase side: pick a feature
-  else if(pick==='tcv')  tcLink(owner,s.value,true,'item_refs');      // testcase side: pick an item
   else if(pick==='vref') setLink(owner,s.value,true);             // feature side: pick an item
   else                   setLink(s.value,owner,true);             // item side: pick a feature
   markDirty(); render();

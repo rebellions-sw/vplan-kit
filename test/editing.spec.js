@@ -221,27 +221,29 @@ test('a testcase type can be added from its column header, like a category', asy
   expect(await page.evaluate(() => DATA.$enums.test_type)).toEqual(['directed', 'regression']);
 });
 
-test('a testcase links features and items by chip, and the chip opens the drawer', async ({ page }) => {
+test('a testcase links features by chip; its verification items follow from them', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await page.evaluate(() => { DATA.testcases = [TEMPLATE.testcase([])]; render(); });
   await page.click('[data-tab="testcases"]');
 
   const tc = 'TC001';
-  await page.selectOption(`select[data-pick="tcf"][data-owner="${tc}"]`, 'F01');
-  await page.selectOption(`select[data-pick="tcv"][data-owner="${tc}"]`, 'VI001');
-  expect(await page.evaluate(() => [DATA.testcases[0].feature_refs, DATA.testcases[0].item_refs]))
-    .toEqual([['F01'], ['VI001']]);
+  const shown = () => page.$$eval('tr.subrow .refcell [data-peek="item"]', els => els.map(e => e.textContent.trim()));
+  expect(await shown()).toEqual([]);                       // no feature yet, so nothing to run
 
-  // the chip opens the peek drawer on the row it points at
+  await page.selectOption(`select[data-pick="tcf"][data-owner="${tc}"]`, 'F01');
+  expect(await shown()).toEqual(['VI001']);                // VI001 is linked to F01 by the seed
+  expect(await page.evaluate(() => 'item_refs' in DATA.testcases[0])).toBe(false);   // derived, not stored
+
+  // the chip opens the peek drawer on the item it names
   await page.click(`.reflink [data-act="peek"][data-id="VI001"]`);
   await expect(page.locator('.peek-pane')).toHaveCount(1);
   await expect(page.locator('.peek-pane .sid')).toHaveText('VI001');
   await page.click('[data-act="peek-close"]');
 
-  // and × unlinks it
-  await page.click(`.reflink .x[data-kind="tcv"][data-id="VI001"]`);
-  expect(await page.evaluate(() => DATA.testcases[0].item_refs)).toEqual([]);
+  // dropping the feature drops what it brought with it
+  await page.click(`.reflink .x[data-kind="tcf"][data-id="F01"]`);
+  expect(await shown()).toEqual([]);
 });
 
 test('Refresh renumbers testcases too, and the links that point at rows follow', async ({ page }) => {
@@ -249,8 +251,8 @@ test('Refresh renumbers testcases too, and the links that point at rows follow',
   await seed(page);
   await page.evaluate(() => {
     DATA.testcases = [
-      { ...TEMPLATE.testcase([]), id: 'TC007', name: 'first', feature_refs: ['F02'], item_refs: ['VI001'] },
-      { ...TEMPLATE.testcase([]), id: 'TC003', name: 'second', feature_refs: ['F01'], item_refs: [] },
+      { ...TEMPLATE.testcase([]), id: 'TC007', name: 'first', feature_refs: ['F02'] },
+      { ...TEMPLATE.testcase([]), id: 'TC003', name: 'second', feature_refs: ['F01'] },
     ];
     DATA.comments = [{ cid: 'C001', target: 'TC003', author: 'x', to: [], text: 'here', created: '2026-09-15 10:00:00', resolved: false }];
     render();
@@ -259,5 +261,5 @@ test('Refresh renumbers testcases too, and the links that point at rows follow',
 
   expect(await page.evaluate(() => DATA.testcases.map(t => [t.id, t.name]))).toEqual([['TC001', 'first'], ['TC002', 'second']]);
   expect(await page.evaluate(() => DATA.comments[0].target)).toBe('TC002');   // the thread follows its row
-  expect(await page.evaluate(() => DATA.testcases[0].item_refs)).toEqual(['VI001']);
+  expect(await page.evaluate(() => DATA.testcases[0].feature_refs)).toEqual(['F02']);
 });
