@@ -702,11 +702,14 @@ function rowMatches(r,q){
   const hay=rowText(r);
   return String(q).toLowerCase().split(/\s+/).filter(Boolean).every(w=>hay.includes(w));
 }
+const FILTER_SPECIAL=new Set(['vref','fref','rel','q']);   // handled below, not by value equality
 function rowsOf(arrPath){
   const f=filterOf(arrPath);
   return (get(arrPath)||[]).map((r,i)=>({r,i})).filter(({r})=>{
-    // every column filter that is a plain value match — miss one and its dropdown does nothing
-    if(!['category','phase','status','implemented'].every(k=>!f[k]||r[k]===f[k])) return false;
+    /* Every column dropdown writes its key into the filter, and anything that is not one of the four
+       link/search filters below is a plain value match. Listing the columns by hand meant a new
+       column's dropdown silently did nothing until someone noticed — twice. */
+    for(const k of Object.keys(f)) if(!FILTER_SPECIAL.has(k) && f[k] && r[k]!==f[k]) return false;
     if(f.vref){                       // features, filtered by the item that verifies them
       const linked=DATA.items.filter(it=>(it.feature_refs||[]).includes(r.id)).map(it=>it.id);
       if(f.vref==='__none__' ? linked.length : !linked.includes(f.vref)) return false;

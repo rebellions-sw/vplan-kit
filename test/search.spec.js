@@ -172,3 +172,26 @@ test('every column dropdown filters — including Implemented on the items table
   await page.selectOption('select[data-filter="items"][data-key="implemented"]', '');
   expect(await ids()).toEqual(['VI001', 'VI002']);
 });
+
+test('a column filter works by being a column — no per-key list to forget', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.items = [
+      { id:'VI001', name:'rides along', description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
+        exercised:'always-on', status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
+      { id:'VI002', name:'needs a testcase', description:'', feature_refs:[], oracle:'', report:'', judged_by:[],
+        exercised:'directed', status:'editing', phase:'Alpha', implemented:'todo', notes:'' },
+    ];
+    render();
+  });
+  await page.click('[data-tab="items"]');
+  const ids = () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
+
+  await page.selectOption('select[data-filter="items"][data-key="exercised"]', 'directed');
+  expect(await ids()).toEqual(['VI002']);
+  await page.selectOption('select[data-filter="items"][data-key="exercised"]', 'always-on');
+  expect(await ids()).toEqual(['VI001']);
+  await page.selectOption('select[data-filter="items"][data-key="exercised"]', '');
+  expect(await ids()).toEqual(['VI001', 'VI002']);
+});
