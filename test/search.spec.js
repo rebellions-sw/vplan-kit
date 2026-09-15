@@ -195,3 +195,27 @@ test('a column filter works by being a column — no per-key list to forget', as
   await page.selectOption('select[data-filter="items"][data-key="exercised"]', '');
   expect(await ids()).toEqual(['VI001', 'VI002']);
 });
+
+test('the testcase list filters by the feature a test points at', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate(() => {
+    DATA.testcases = [
+      { ...TEMPLATE.testcase([]), id:'TC001', name:'tc_one',   feature_refs:['F01'], item_refs:[] },
+      { ...TEMPLATE.testcase([]), id:'TC002', name:'tc_two',   feature_refs:['F02'], item_refs:[] },
+      { ...TEMPLATE.testcase([]), id:'TC003', name:'tc_three', feature_refs:[],      item_refs:[] },
+    ];
+    render();
+  });
+  await page.click('[data-tab="testcases"]');
+  const ids = () => page.$$eval('tr.row .cell.id', els => els.map(e => e.textContent.trim()));
+
+  await page.selectOption('select[data-filter="testcases"][data-key="fref"]', 'F01');
+  expect(await ids()).toEqual(['TC001']);
+
+  await page.selectOption('select[data-filter="testcases"][data-key="fref"]', '__none__');
+  expect(await ids()).toEqual(['TC003']);        // tests that point at no feature at all
+
+  await page.selectOption('select[data-filter="testcases"][data-key="fref"]', '');
+  expect(await ids()).toEqual(['TC001', 'TC002', 'TC003']);
+});

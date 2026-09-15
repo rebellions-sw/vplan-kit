@@ -1300,6 +1300,7 @@ function auditPanel(kind){
 VIEW.testcases=()=>`
   <div class="panel stick"><div class="panel-head"><h2>Testcase list</h2>${addBtn('testcases','testcase','testcase')}${filterNote('testcases')}
     <div class="spacer"></div>
+    ${headFilter('feature','testcases','fref',[['__none__','— none —']].concat(DATA.features.map(f=>[f.id,f.id])))}
     ${headSearch('testcases')}</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th style="width:26px"></th>${sortTh('ID','testcases','id','width:64px')}
