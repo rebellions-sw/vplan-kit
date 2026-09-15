@@ -45,6 +45,10 @@ test('a feature claimed by a verification item is no longer reported as uncovere
     D.meta.phase = 'pre-Alpha';
     D.features.push({ id: 'F92', name: 'covered', phase: 'pre-Alpha', status: 'finalized', reviewed: true });
     D.items.push({ id: 'VI900', name: 'judges F92', feature_refs: ['F92'], oracle: 'scoreboard', status: 'finalized', phase: 'pre-Alpha' });
+    // ...and a test that runs it, so the uncovered-features rule has nothing to say either
+    D.testcases.push({ id: 'TC900', name: 'tc_f92', feature_refs: ['F92'], type: 'directed', phase: 'Beta',
+                       status: 'not started', implemented: 'todo', description: 'd',
+                       uvm: { sequences: [] }, tb_gen_hints: '' });
   });
   const lines = await lint(page);
   expect(matching(lines, /F92/)).toHaveLength(0);
@@ -215,4 +219,30 @@ test('a due testcase with no feature is an error — it verifies nothing', async
   expect(hit[0]).toContain('TC020');
   expect(hit[0]).not.toContain('TC021');
   expect(hit[0]).not.toContain('TC022');
+});
+
+test('a feature no testcase links is reported under uncovered features', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'Alpha';
+    D.features.push({ id: 'F90', category: 'behavior', name: 'run by a test', description: 'd',
+                      phase: 'Alpha', status: 'finalized', reviewed: true, notes: '' });
+    D.features.push({ id: 'F91', category: 'behavior', name: 'run by nothing', description: 'd',
+                      phase: 'Alpha', status: 'finalized', reviewed: true, notes: '' });
+    D.features.push({ id: 'F92', category: 'behavior', name: 'later phase', description: 'd',
+                      phase: 'Beta', status: 'finalized', reviewed: true, notes: '' });
+    D.testcases = [{ id: 'TC030', name: 'tc', feature_refs: ['F90'], type: 'directed', phase: 'Alpha',
+                     status: 'finalized', implemented: 'done', description: 'd',
+                     uvm: { sequences: [] }, tb_gen_hints: '' }];
+  });
+  const lines = await lint(page);
+
+  const hit = matching(lines, /UNCOVERED .*no testcase exercises this feature/);
+  expect(hit).toHaveLength(1);
+  expect(hit[0]).toContain('F91');
+  expect(hit[0]).not.toContain('F90');
+  expect(hit[0]).not.toContain('F92');            // its phase has not arrived
+
+  expect(matching(lines, /testcase has no sequence/)).toHaveLength(0);   // that rule is gone
 });
