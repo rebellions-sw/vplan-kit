@@ -1519,10 +1519,12 @@ function lint(){
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
   const itemNoTC=grp('warn','item','no testcase exercises this item');
+  /* declaration order is display order: the coverage gaps first — they say work is missing — then the
+     state of the tests that do exist */
+  const featNoTC=grp('err','testcase','no testcase exercises this feature');
   const tcNoF   =grp('err','testcase','no feature is linked — the test verifies nothing');
   const tcUnD   =grp('err','testcase','definition is not finalized');
   const tcUnI   =grp('err','testcase','implemented is not done');
-  const featNoTC=grp('err','testcase','no testcase exercises this feature');
   const cgNoRef =grp('warn','plan','covergroup has no feature');
   const svaNoMod=grp('warn','plan','assertion has no bind module');
   const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
