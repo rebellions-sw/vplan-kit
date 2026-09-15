@@ -557,6 +557,11 @@ DATA.meta.people = DATA.meta.people || [];           // who can be tagged
 const ITEM_DROPPED=['category','reviewed'];
 const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
+/* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
+   plan decision). Same reason as above: a stored key nobody can edit is a field nobody can finish. */
+const TC_DROPPED=['owner','seeds'];
+const stripTestcase=r=>{ TC_DROPPED.forEach(k=>delete r[k]); return r; };
+(DATA.testcases||[]).forEach(stripTestcase);
 let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
@@ -813,7 +818,7 @@ function addBtn(arrPath,kind,label){ return `<button class="btn sm" data-act="ad
 const TABS=[
   ['features','Features',   ()=>DATA.features.length],
   ['items','Verification Items',()=>DATA.items.length],
-  ['testcases','Testcases <span class="tbd">[TBD]</span>', ()=>DATA.testcases.length],
+  ['testcases','Testcases', ()=>DATA.testcases.length],
   ['coverage','Coverage <span class="tbd">[TBD]</span>',()=>DATA.coverage.functional.length+DATA.coverage.assertions.length],
 ];
 
@@ -1278,73 +1283,62 @@ function auditPanel(kind){
 
 /* ---- testcases -------------------------------------------------------- */
 VIEW.testcases=()=>`
-  <div class="panel"><div class="panel-head"><h2>Testcase list</h2>${addBtn('testcases','testcase','testcase')}
-    <div class="chips">${E.status.map(s=>{const n=DATA.testcases.filter(t=>t.status===s).length;
-      return n?`<span class="badge ${({passing:'b-ok',coded:'b-acc',in_progress:'b-warn',failing:'b-err',blocked:'b-err'})[s]||'b-mut'}">${n} ${esc(s)}</span>`:''}).join('')}</div>
-    <span class="hint">${DATA.testcases.reduce((a,t)=>a+(+t.seeds||0),0)} seed-runs total</span></div>
+  <div class="panel stick"><div class="panel-head"><h2>Testcase list</h2>${addBtn('testcases','testcase','testcase')}${filterNote('testcases')}
+    <div class="spacer"></div>
+    ${headSearch('testcases')}</div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th></th><th style="width:60px">ID</th><th style="width:15%">Test name</th><th style="width:86px">Features</th>
-    <th style="width:86px">Items</th><th style="width:64px">Pri</th><th style="width:112px">Type</th>
-    <th style="width:124px">Definition</th><th style="width:86px">Owner</th><th style="width:52px">Seeds</th>
-    <th style="width:24%">Description</th><th></th>
+    <th style="width:26px"></th>${sortTh('ID','testcases','id','width:64px')}<th>Test</th>
+    ${filterTh('Type','testcases','type','test_type','width:150px')}
+    ${filterTh('Priority','testcases','priority','priority','width:110px')}
+    ${filterTh('Definition','testcases','status','status','width:150px')}
   </tr></thead><tbody>
-  ${DATA.testcases.map((t,i)=>{
-    const open=OPEN.has(t.id);
-    return `<tr class="row" data-tcrow="${t.id}">
-      <td class="exp" data-act="toggle" data-id="${t.id}">${open?'▾':'▸'}</td>
-      <td>${cell(`testcases.${i}.id`,{cls:'id'})}</td>
-      <td>${cell(`testcases.${i}.name`,{cls:'mono'})}</td>
-      <td>${cell(`testcases.${i}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'})}</td>
-      <td>${cell(`testcases.${i}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001'})}</td>
-      <td>${sel(`testcases.${i}.priority`,E.priority)}</td>
-      <td>${sel(`testcases.${i}.type`,E.test_type)}</td>
-      <td>${sel(`testcases.${i}.status`,E.status)}</td>
-      <td>${cell(`testcases.${i}.owner`,{cls:'nw'})}</td>
-      <td>${cell(`testcases.${i}.seeds`,{cls:'mono nw'})}</td>
-      <td>${cell(`testcases.${i}.description`)}</td>
-      ${rowBtns('testcases',i)}</tr>
-      ${open?`<tr class="detail"><td colspan="12">${tcDetail(t,i)}</td></tr>`:''}`;
+  ${rowsOf('testcases').map(({r:t,i},vi,vis_)=>{
+    const p=`testcases.${i}`;
+    return `<tr class="row">
+    <td class="gripcell">${rowGrip('testcases',i)}</td>
+    <td>${cell(`${p}.id`,{cls:'id'})}</td>
+    <td>${cell(`${p}.name`,{cls:'mono'})}</td>
+    <td>${sel(`${p}.type`,E.test_type)}</td>
+    <td>${sel(`${p}.priority`,E.priority)}</td>
+    <td>${sel(`${p}.status`,E.status)}</td></tr>
+    <tr class="subrow"><td></td><td class="idbtns-cell"><div class="idbtns">${rowDupDel('testcases',i,vi,vis_.length)}</div>${cmtBtn(t.id)}</td>
+      <td colspan="2">${field('Features',cell(`${p}.feature_refs`,{kind:'csv',cls:'mono',ph:'F01, F02'}))}</td>
+      <td colspan="2">${field('Items',cell(`${p}.item_refs`,{kind:'csv',cls:'mono',ph:'VI001, VI002'}),'이 테스트가 겨냥한 검증 항목')}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="4">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="4"><div class="grid">
+        ${field('UVM test class',cell(`${p}.uvm.test_class`,{cls:'mono'}),'→ class X extends base')}
+        ${field('Base test',cell(`${p}.uvm.base_test`,{cls:'mono'}))}
+        ${field('Virtual sequence',cell(`${p}.uvm.virtual_sequence`,{cls:'mono'}))}
+        ${field('Dependencies',cell(`${p}.dependencies`,{kind:'csv',cls:'mono',ph:'TC001'}))}
+        ${Object.keys(t.config||{}).map(k=>field(k,cell(`${p}.config.${k}`,{cls:'mono'}))).join('')}
+      </div></td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="4"><div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
+      <table><thead><tr><th style="width:22%">Agent</th><th style="width:28%">Sequence class</th><th>Params</th><th></th></tr></thead><tbody>
+      ${(t.uvm.sequences||[]).map((q,j)=>`<tr class="row">
+        <td>${cell(`${p}.uvm.sequences.${j}.agent`,{cls:'mono'})}</td>
+        <td>${cell(`${p}.uvm.sequences.${j}.seq_class`,{cls:'mono'})}</td>
+        <td>${cell(`${p}.uvm.sequences.${j}.params`,{cls:'mono'})}</td>
+        <td class="actions"><div class="idbtns">${rowDupDel(`${p}.uvm.sequences`,j,j,(t.uvm.sequences||[]).length)}</div></td></tr>`).join('')}
+      </tbody></table></div></td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="4"><div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
+      <table><thead><tr><th style="width:16%">Type</th><th>Description</th><th style="width:22%">Component / ref</th><th></th></tr></thead><tbody>
+      ${(t.checks||[]).map((c,j)=>`<tr class="row">
+        <td>${sel(`${p}.checks.${j}.type`,E.check_type)}</td>
+        <td>${cell(`${p}.checks.${j}.description`)}</td>
+        <td>${cell(`${p}.checks.${j}.ref`,{cls:'mono'})}</td>
+        <td class="actions"><div class="idbtns">${rowDupDel(`${p}.checks`,j,j,(t.checks||[]).length)}</div></td></tr>`).join('')}
+      </tbody></table></div></td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="4">${field('Pass criteria',cell(`${p}.pass_criteria`,{cls:'boxed',ph:'무엇이 참이면 이 테스트가 통과인가'}))}</td></tr>
+    <tr class="subrow"><td></td><td></td>
+      <td colspan="2">${field('Coverage refs',cell(`${p}.coverage_refs`,{kind:'csv',cls:'mono',ph:'CG01, SVA02'}))}</td>
+      <td colspan="2">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
   }).join('')}
   </tbody></table></div></div>`;
-
-function tcDetail(t,i){
-  const p=`testcases.${i}`;
-  return `
-  <div class="grid">
-    ${field('UVM test class',cell(`${p}.uvm.test_class`,{cls:'mono'}),'→ class X extends base')}
-    ${field('Base test',cell(`${p}.uvm.base_test`,{cls:'mono'}))}
-    ${field('Virtual sequence',cell(`${p}.uvm.virtual_sequence`,{cls:'mono'}))}
-    ${field('Dependencies',cell(`${p}.dependencies`,{kind:'csv',cls:'mono',ph:'TC001'}))}
-  </div>
-
-  <div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
-  <table><thead><tr><th style="width:22%">Agent</th><th style="width:28%">Sequence class</th><th>Params</th><th></th></tr></thead><tbody>
-  ${(t.uvm.sequences||[]).map((s,j)=>`<tr class="row">
-    <td>${cell(`${p}.uvm.sequences.${j}.agent`,{cls:'mono'})}</td>
-    <td>${cell(`${p}.uvm.sequences.${j}.seq_class`,{cls:'mono'})}</td>
-    <td>${cell(`${p}.uvm.sequences.${j}.params`,{cls:'mono'})}</td>
-    ${rowBtns(`${p}.uvm.sequences`,j)}</tr>`).join('')}
-  </tbody></table></div>
-
-  <div class="sub-panel"><h4>Config (uvm_config_db / plusargs)</h4><div class="grid">
-    ${Object.keys(t.config||{}).map(k=>field(k,cell(`${p}.config.${k}`,{cls:'mono'}))).join('')}
-  </div></div>
-
-  <div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
-  <table><thead><tr><th style="width:16%">Type</th><th>Description</th><th style="width:22%">Component / ref</th><th></th></tr></thead><tbody>
-  ${(t.checks||[]).map((c,j)=>`<tr class="row">
-    <td>${sel(`${p}.checks.${j}.type`,E.check_type)}</td>
-    <td>${cell(`${p}.checks.${j}.description`)}</td>
-    <td>${cell(`${p}.checks.${j}.ref`,{cls:'mono'})}</td>
-    ${rowBtns(`${p}.checks`,j)}</tr>`).join('')}
-  </tbody></table></div>
-
-  <div class="sub-panel"><div class="grid">
-    ${field('Coverage refs',cell(`${p}.coverage_refs`,{kind:'csv',cls:'mono',ph:'CG01, SVA02'}))}
-    ${field('Pass criteria',cell(`${p}.pass_criteria`))}
-    ${field('TB generation hints',cell(`${p}.tb_gen_hints`),'AI에게 주는 추가 지시')}
-  </div></div>`;
-}
 
 /* ---- coverage --------------------------------------------------------- */
 VIEW.coverage=()=>{
@@ -1443,10 +1437,10 @@ function commonBaseTest(){
 const TEMPLATE={
   item:a=>({id:nextId(a,'VI',3),name:'',description:'',feature_refs:[],oracle:'',report:'',judged_by:[],exercised:'directed',status:'not started',phase:'pre-Alpha',implemented:'todo',notes:''}),
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
-  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],priority:'P1',type:'directed',status:'not started',owner:DATA.meta.owner,description:'',
+  testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],item_refs:[],priority:'P1',type:'directed',status:'not started',description:'',
     uvm:{test_class:'',base_test:commonBaseTest(),virtual_sequence:'',sequences:[]},
     config:JSON.parse(JSON.stringify((a[a.length-1]&&a[a.length-1].config)||{timeout_ns:1000000})),
-    checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],seeds:1,tb_gen_hints:''}),
+    checks:[],coverage_refs:[],pass_criteria:'',dependencies:[],tb_gen_hints:''}),
   seq:()=>({agent:'',seq_class:'',params:''}),
   check:()=>({type:'scoreboard',description:'',ref:''}),
   cg:a=>({id:nextId(a,'CG',2),covergroup:'',sample_point:'',bins:'',target:100,feature_refs:[],status:'open',notes:''}),
@@ -1500,7 +1494,6 @@ function lint(){
   const tcNoCls =grp('err','plan','testcase has no uvm.test_class');
   const tcNoChk =grp('err','plan','testcase has no checks');
   const tcNoSeq =grp('warn','plan','testcase has no sequence');
-  const tcNoSeed=grp('warn','plan','testcase has no seeds');
   const cgNoRef =grp('warn','plan','covergroup has no feature');
   const svaNoMod=grp('warn','plan','assertion has no bind module');
   const sugOpen =grp('warn','plan','suggestions pending review — see Suggestions from AI',true);   // the ids add nothing here
@@ -1582,7 +1575,6 @@ function lint(){
     if(!t.uvm||!t.uvm.test_class) tcNoCls.ids.push(t.id);
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
     if(!(t.checks||[]).length) tcNoChk.ids.push(t.id);
-    if(!(+t.seeds>0)) tcNoSeed.ids.push(t.id);
   });
   DATA.coverage.functional.forEach(g=>{ if(!(g.feature_refs||[]).length) cgNoRef.ids.push(g.id); });
   DATA.coverage.assertions.forEach(a=>{ if(!a.module) svaNoMod.ids.push(a.id); });
