@@ -1100,6 +1100,7 @@ function cmtCard(c,i){
       <div class="spacer"></div><span>${esc(c.created||'')}</span></div>
     <div class="cmt-txt">${atText(c.text||'')}</div>
     <div class="cmt-acts">
+      <button class="btn sm" data-act="cmt" data-target="${esc(c.target)}" title="이 스레드에 이어서 답니다">답변</button>
       <button class="btn sm" data-act="${c.resolved?'cmt-reopen':'cmt-resolve'}" data-i="${i}">${c.resolved?'다시 열기':'해결'}</button>
       <button class="btn sm" data-act="cmt-del" data-i="${i}" title="이 코멘트를 지웁니다">삭제</button>
     </div></div>`;
@@ -1125,8 +1126,7 @@ function thread(t){
   const name=t==='plan'?'플랜 전체':((row&&row.name)||'없는 행');
   return `<div class="thread${CMTFOCUS===t?' focus':''}" data-thread="${esc(t)}">
     <div class="th-head"><span class="sid" data-act="cmt-goto" data-target="${esc(t)}" title="해당 행으로 이동">${esc(t)}</span>
-      <span class="who">${esc(name)}</span><div class="spacer"></div>
-      ${CMTFOCUS===t?'':`<button class="btn icon" data-act="cmt" data-target="${esc(t)}" title="코멘트 달기">＋</button>`}</div>
+      <span class="who">${esc(name)}</span><div class="spacer"></div></div>
     ${list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
     ${CMTFOCUS===t?composer(t):''}</div>`;
 }

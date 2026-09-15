@@ -168,3 +168,21 @@ test('the table stays inside its panel beside the rail, header and body aligned'
     }
   }
 });
+
+test('replying starts from the comment itself, beside 해결 and 삭제', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await writeComment(page, 'F01', '여기 확인해줘');
+  await page.click('[data-act="cmt-cancel"]');                 // close the composer
+
+  const acts = page.locator('.thread[data-thread="F01"] .cmt .cmt-acts .btn');
+  await expect(acts).toHaveText(['답변', '해결', '삭제']);
+  await expect(page.locator('.th-head .btn')).toHaveCount(0);  // the head's ＋ is gone
+
+  await acts.first().click();
+  await expect(page.locator('.thread[data-thread="F01"] .composer')).toHaveCount(1);
+  await page.fill('#cmt-text', '확인했어');
+  await page.click('[data-act="cmt-add"]');
+  await expect(page.locator('.thread[data-thread="F01"] .cmt-txt')).toHaveText(['여기 확인해줘', '확인했어']);
+});
