@@ -122,7 +122,6 @@ test('a testcase says which items it runs; an item nobody runs is a warning', as
     D.testcases.push({ id: 'TC700', name: 'tc_runs_701', feature_refs: ['F01'],
                        priority: 'P1', type: 'directed', status: 'finalized', owner: 'x', description: 'd',
                        uvm: { test_class: 'c', base_test: 'b', virtual_sequence: 'v', sequences: [{ agent: 'a', seq_class: 's', params: '' }] },
-                       config: { timeout_ns: 1000 }, checks: [{ type: 'scoreboard', description: 'd', ref: '' }],
                        coverage_refs: [], pass_criteria: 'p', dependencies: [], seeds: 1, tb_gen_hints: '' });
   });
   const lines = await lint(page);

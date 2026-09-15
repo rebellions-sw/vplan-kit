@@ -53,13 +53,12 @@
    A generator should be able to emit a full UVM TB from this JSON alone:
      testcases[].uvm      -> uvm_test class, base test, virtual sequence, per-agent sequences
                              (the agent inventory is the set of `sequences[].agent` names used anywhere)
-     testcases[].checks   -> what the scoreboard / assertion / RAL must verify (`ref` names the component)
      testcases[].tb_gen_hints -> TB-side requirements not visible in any other field
      coverage.functional  -> covergroup skeletons (covergroup / sample_point / bins)
      coverage.assertions  -> SVA property skeletons (bind target in `module`)
      testcases[].seeds    -> seed count per test for the regression runner
    The env / agent / scoreboard structure is DERIVED, not stored here: the agent list comes from
-   testcases[].uvm.sequences[].agent, scoreboard & model component names come from checks[].ref, and the
+   testcases[].uvm.sequences[].agent names the driving agent, and the
    base test / virtual sequence names come from testcases[].uvm. Keep those names spelled consistently —
    a typo creates a phantom agent. The Lint button reports every distinct agent name it finds.
    NOTE: this plan does not describe the DUT pin interfaces (protocol, widths, clocks). The generator must
@@ -557,7 +556,7 @@ const stripItem=r=>{ ITEM_DROPPED.forEach(k=>delete r[k]); return r; };
 (DATA.items||[]).forEach(stripItem);
 /* Testcases dropped Owner (the plan has one, in the top bar) and Seeds (a regression setting, not a
    plan decision). Same reason as above: a stored key nobody can edit is a field nobody can finish. */
-const TC_DROPPED=['owner','seeds','priority','coverage_refs','pass_criteria','config','dependencies','item_refs'];
+const TC_DROPPED=['owner','seeds','priority','coverage_refs','pass_criteria','config','dependencies','item_refs','checks'];
 const UVM_DROPPED=['test_class','base_test','virtual_sequence'];
 const stripTestcase=r=>{
   TC_DROPPED.forEach(k=>delete r[k]);
@@ -1344,15 +1343,6 @@ VIEW.testcases=()=>`
         <td class="actions"><div class="idbtns">${rowDupDel(`${p}.uvm.sequences`,j,j,(t.uvm.sequences||[]).length)}</div></td></tr>`).join('')}
       </tbody></table></div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5"><div class="sub-panel"><h4>Checks — 무엇을 어떻게 확인하는가 ${addBtn(`${p}.checks`,'check','check')}</h4>
-      <table><thead><tr><th style="width:16%">Type</th><th>Description</th><th style="width:22%">Component / ref</th><th></th></tr></thead><tbody>
-      ${(t.checks||[]).map((c,j)=>`<tr class="row">
-        <td>${sel(`${p}.checks.${j}.type`,E.check_type)}</td>
-        <td>${cell(`${p}.checks.${j}.description`)}</td>
-        <td>${cell(`${p}.checks.${j}.ref`,{cls:'mono'})}</td>
-        <td class="actions"><div class="idbtns">${rowDupDel(`${p}.checks`,j,j,(t.checks||[]).length)}</div></td></tr>`).join('')}
-      </tbody></table></div></td></tr>
-    <tr class="subrow"><td></td><td></td>
       <td colspan="5">${field('TB generation hints',cell(`${p}.tb_gen_hints`,{cls:'boxed',ph:'—'}),'AI에게 주는 추가 지시')}</td></tr>`;
   }).join('')}
   </tbody></table></div></div>`;
@@ -1450,9 +1440,8 @@ const TEMPLATE={
   feature:a=>({id:nextId(a,'F',2),category:'',name:'',description:'',related_refs:[],phase:'pre-Alpha',status:'not started',reviewed:false,notes:''}),
   testcase:a=>({id:nextId(a,'TC',3),name:'',feature_refs:[],type:'directed',phase:'pre-Alpha',status:'not started',implemented:'todo',description:'',
     uvm:{sequences:[]},
-    checks:[],tb_gen_hints:''}),
+    tb_gen_hints:''}),
   seq:()=>({agent:'',seq_class:'',params:''}),
-  check:()=>({type:'scoreboard',description:'',ref:''}),
   cg:a=>({id:nextId(a,'CG',2),covergroup:'',sample_point:'',bins:'',target:100,feature_refs:[],status:'open',notes:''}),
   sva:a=>({id:nextId(a,'SVA',2),name:'',module:'',property_desc:'',severity:'error',status:'not started',feature_refs:[]}),
   str:()=>'',
@@ -1503,7 +1492,6 @@ function lint(){
   const itemUnI =grp('err','item','implemented is not done');
   const gapI    =grp('warn','item','some fields are still empty');
   const itemNoTC=grp('warn','item','needs a dedicated testcase — none names it');
-  const tcNoChk =grp('err','plan','testcase has no checks');
   const tcNoSeq =grp('warn','plan','testcase has no sequence');
   const cgNoRef =grp('warn','plan','covergroup has no feature');
   const svaNoMod=grp('warn','plan','assertion has no bind module');
@@ -1580,7 +1568,6 @@ function lint(){
   DATA.testcases.forEach(t=>{
     (t.feature_refs||[]).forEach(r=>{ if(!fids.has(r)) dangling.ids.push(`${t.id}→${r}`); });
     if(!t.uvm||!(t.uvm.sequences||[]).length) tcNoSeq.ids.push(t.id);
-    if(!(t.checks||[]).length) tcNoChk.ids.push(t.id);
   });
   DATA.coverage.functional.forEach(g=>{ if(!(g.feature_refs||[]).length) cgNoRef.ids.push(g.id); });
   DATA.coverage.assertions.forEach(a=>{ if(!a.module) svaNoMod.ids.push(a.id); });
