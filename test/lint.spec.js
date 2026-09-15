@@ -127,11 +127,30 @@ test('a testcase says which items it runs; an item nobody runs is a warning', as
   });
   const lines = await lint(page);
 
-  const gap = matching(lines, /no testcase exercises this item/);
+  const gap = matching(lines, /needs a dedicated testcase/);
   expect(gap).toHaveLength(1);
   expect(gap[0]).toContain('VI700');
   expect(gap[0]).not.toContain('VI701');            // that one is run
 
   // an item_ref that resolves to nothing is the same error as any other dangling reference
   expect(matching(lines, /^ERR .*reference points at an id that does not exist.*TC700→VI999/)).toHaveLength(1);
+});
+
+test('an always-on check is not missing a testcase — only a directed one is', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await patch(page, D => {
+    D.meta.phase = 'Alpha';
+    const row = (id, exercised) => ({ id, name: id, description: 'd', feature_refs: ['F01'], oracle: 'o',
+      report: 'r', judged_by: ['scoreboard'], exercised, status: 'finalized', phase: 'Alpha',
+      implemented: 'done', notes: '' });
+    D.items.push(row('VI800', 'always-on'));     // rides along with any traffic
+    D.items.push(row('VI801', 'directed'));      // needs a crafted condition
+    D.items.push(row('VI802', undefined));       // unset reads as directed
+  });
+  const gap = matching(await lint(page), /needs a dedicated testcase/);
+  expect(gap).toHaveLength(1);
+  expect(gap[0]).not.toContain('VI800');
+  expect(gap[0]).toContain('VI801');
+  expect(gap[0]).toContain('VI802');
 });
