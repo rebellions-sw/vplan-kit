@@ -78,6 +78,7 @@ test('YAML quoting survives values that look like YAML syntax', async ({ page })
 test('JSON export matches the live DATA exactly', async ({ page }) => {
   await openVplan(page);
   await seed(page);
+  await page.click('[data-act="src"]');            // the Input Source fold holds these cells now
   await setCell(page, 'meta.uarch', 'https://example.com/spec');
   const [exported, live] = await Promise.all([
     page.evaluate(() => JSON.stringify(DATA, null, 2)),

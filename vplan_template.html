@@ -199,7 +199,7 @@ body{
 .vgrid > .vg-k:not(:first-child),.vgrid > .vg-v:not(:nth-child(2)){border-top:1px solid var(--line-2)}
 @media print{.rail{display:none!important} #app.railed{padding-right:0}}
 .srchead{margin:10px 0 4px;font-weight:600;font-size:10px;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
-.srcbox{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+.srcbox{margin-top:6px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;gap:5px 9px;padding:7px 10px;background:var(--panel-2);
   border:1px solid var(--line-2);border-radius:var(--radius)}
 .src-k{font-size:11px;font-weight:600;line-height:1;color:var(--accent);background:var(--accent-soft);
@@ -599,6 +599,7 @@ let DIAZ = null;             // the meta key currently open full-screen (click t
 let CMTFOCUS = null;
 let CMTDRAFT = {text:'', to:[]};
 let CMTREPLY = null;         // the cid being answered — a reply lands under it, not at the end
+let SRCOPEN = false;         // the Input Source fold — three paths you set once and rarely reread
 let CMTVIEW = 'open';        // which half of the conversation the rail shows: 'open' | 'resolved'
 const THOPEN = new Set();    // targets whose thread is unfolded; closed, a thread is one line
 let OPEN = new Set();          // expanded testcase ids
@@ -886,12 +887,17 @@ function render(){
       <span class="ms-item"><b>phase</b>${sel('meta.phase',E.phase,{cls:'mini'})}</span>
       <span class="ms-item"><b>updated</b>${cell('meta.last_updated',{cls:'mono mini',ph:'YYYY-MM-DD'})}</span>
     </div>
-    <div class="srchead">Input Source</div>
-    <div class="srcbox">
+    <div class="topo">
+      <button class="topo-head" data-act="src"><span class="caret">${SRCOPEN?'▾':'▸'}</span>
+        <b>Input Source</b><span class="hint">${SRCOPEN?'클릭하면 접힙니다':
+          (()=>{const n=['uarch','ref_model','csr'].filter(k=>(DATA.meta[k]||'').trim()).length;
+                return n?`${n}개 설정됨`:'아직 비어 있습니다';})()}</span></button>
+    </div>
+    ${SRCOPEN?`<div class="srcbox">
       <span class="src-k">uArch</span>${cell('meta.uarch',{cls:'mono mini src-v',ph:'https://…'})}${/^https?:\/\//.test(DATA.meta.uarch||'')?`<a class="src-go" href="${esc(DATA.meta.uarch)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
       <span class="src-k">Ref-Model</span>${cell('meta.ref_model',{cls:'mono mini src-v',ph:'ref-model 경로'})}${/^https?:\/\//.test(DATA.meta.ref_model||'')?`<a class="src-go" href="${esc(DATA.meta.ref_model)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
       <span class="src-k">CSR</span>${cell('meta.csr',{cls:'mono mini src-v',ph:'SFR 엑셀 경로 (.xlsx) — 아직 없음'})}${/^https?:\/\//.test(DATA.meta.csr||'')?`<a class="src-go" href="${esc(DATA.meta.csr)}" target="_blank" rel="noopener" title="열기">↗</a>`:'<span></span>'}
-    </div>
+    </div>`:''}
     ${topoBlock()}
     <div class="tabs">${tabs}</div>
   </div>
@@ -2054,6 +2060,7 @@ document.addEventListener('click',e=>{
     if(c&&c.id){ const m=String(c.id).match(/^([A-Za-z_]+)(\d+)$/); c.id = m? m[1]+String(+m[2]+1).padStart(m[2].length,'0')+'_copy' : c.id+'_copy'; }
     arr.splice(i+1,0,c); markDirty(); render(); return;
   }
+  if(act==='src'){ SRCOPEN=!SRCOPEN; render(); return; }
   if(act==='topo'){
     const k=b.dataset.k;
     DIA.has(k)?DIA.delete(k):DIA.add(k);

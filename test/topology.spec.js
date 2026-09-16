@@ -21,8 +21,8 @@ test('the fold sits under Input Source and opens and closes', async ({ page }) =
   await expect(head).toHaveCount(1);
   await expect(page.locator('.topo-body')).toHaveCount(0);        // closed by default
 
-  // it is below the Input Source box and above the tabs
-  const src = await page.locator('.srcbox').boundingBox();
+  // it is below the Input Source fold and above the tabs
+  const src = await page.locator('[data-act="src"]').boundingBox();
   const topo = await head.boundingBox();
   const tabs = await page.locator('.tabs').boundingBox();
   expect(topo.y).toBeGreaterThan(src.y + src.height - 1);

@@ -328,3 +328,21 @@ test('unlinking asks first — every link kind, on every tab', async ({ page }) 
   await page.click('.reflink .x[data-kind="tcf"]');
   expect(await refs()).toEqual([1, 1, 0]);
 });
+
+test('Input Source is a fold, with a count of what is set', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+
+  // closed by default, and it says how many sources are filled in
+  await expect(page.locator('.srcbox')).toHaveCount(0);
+  await expect(page.locator('[data-act="src"]')).toContainText('Input Source');
+  await expect(page.locator('[data-act="src"] .hint')).toHaveText('아직 비어 있습니다');
+
+  await page.click('[data-act="src"]');
+  await expect(page.locator('.srcbox')).toHaveCount(1);
+  await setCell(page, 'meta.uarch', 'https://example.com/mas');
+
+  await page.click('[data-act="src"]');
+  await expect(page.locator('.srcbox')).toHaveCount(0);
+  await expect(page.locator('[data-act="src"] .hint')).toHaveText('1개 설정됨');
+});
