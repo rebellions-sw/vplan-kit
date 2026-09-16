@@ -178,7 +178,7 @@ test('replying starts from the comment itself, beside 해결 and 삭제', async 
   await writeComment(page, 'F01', '여기 확인해줘');            // posting closes the composer
 
   const acts = page.locator('.thread[data-thread="F01"] .cmt .cmt-acts .btn');
-  await expect(acts).toHaveText(['답변', '해결', '삭제']);
+  await expect(acts).toHaveText(['답변', '해결', '수정', '삭제']);
   await expect(page.locator('.th-head .btn')).toHaveCount(0);  // the head's ＋ is gone
 
   await acts.first().click();
@@ -229,7 +229,7 @@ test('opening a thread shows its comments in full, and what you write opens its 
   await expect(page.locator('.thread .cmt')).toHaveCount(0);      // one line per thread
   await page.click('.th-fold');
   await expect(page.locator('.thread .cmt-txt')).toHaveText('첫 줄 요약\n두 번째 줄도 함께 보여야 한다');
-  await expect(page.locator('.thread .cmt-acts .btn')).toHaveText(['답변', '해결', '삭제']);
+  await expect(page.locator('.thread .cmt-acts .btn')).toHaveText(['답변', '해결', '수정', '삭제']);
 
   await writeComment(page, 'F02', '내가 쓴 것');
   await expect(page.locator('.thread[data-thread="F02"] .cmt-txt')).toHaveText('내가 쓴 것');
@@ -342,7 +342,7 @@ test('resolving a comment takes its replies with it, both ways', async ({ page }
   await expect(page.locator('.thread .cmt-txt')).toHaveText(['질문', '답변입니다']);
 
   // a reply carries no 답변/해결 of its own — the conversation is resolved as a whole
-  await expect(page.locator('.cmt.reply .cmt-acts .btn')).toHaveText(['삭제']);
+  await expect(page.locator('.cmt.reply .cmt-acts .btn')).toHaveText(['수정', '삭제']);
 
   await page.locator('.thread .cmt').first().locator('[data-act="cmt-resolve"]').click();
   expect(await page.evaluate(() => DATA.comments.map(c => c.resolved))).toEqual([true, true]);
