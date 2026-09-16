@@ -599,6 +599,7 @@ let DIAZ = null;             // the meta key currently open full-screen (click t
 let CMTFOCUS = null;
 let CMTDRAFT = {text:'', to:[]};
 let CMTREPLY = null;         // the cid being answered — a reply lands under it, not at the end
+let CMTEDIT = null;          // the cid being edited in place
 let SRCOPEN = false;         // the Input Source fold — three paths you set once and rarely reread
 let CMTVIEW = 'open';        // which half of the conversation the rail shows: 'open' | 'resolved'
 const THOPEN = new Set();    // targets whose thread is unfolded; closed, a thread is one line
@@ -1191,12 +1192,16 @@ function cmtCard(c,i){
     <div class="cmt-top"><span class="au">${esc(c.author||'—')}</span>
       ${(c.to||[]).map(x=>`<span class="mention">@${esc(x)}</span>`).join('')}
       <span class="spacer"></span><span class="when">${esc(c.created||'')}</span></div>
-    <div class="cmt-txt">${atText(c.text||'')}</div>
+    ${CMTEDIT===c.cid
+      ? cell(`comments.${i}.text`,{cls:'boxed',ph:'코멘트 내용'})
+      : `<div class="cmt-txt">${atText(c.text||'')}</div>`}
     <div class="cmt-acts">
+      ${CMTEDIT===c.cid?`<button class="btn sm primary" data-act="cmt-edit-done">완료</button>`:`
       ${c.reply_to?'':`
       <button class="btn sm" data-act="cmt" data-target="${esc(c.target)}" data-reply="${esc(c.cid||'')}"
         title="이 코멘트 바로 아래에 답니다">답변</button>
       <button class="btn sm" data-act="${c.resolved?'cmt-reopen':'cmt-resolve'}" data-i="${i}">${c.resolved?'다시 열기':'해결'}</button>`}
+      <button class="btn sm" data-act="cmt-edit" data-cid="${esc(c.cid||'')}" title="내용을 고칩니다">수정</button>`}
       <button class="btn sm" data-act="cmt-del" data-i="${i}" title="이 코멘트를 지웁니다">삭제</button>
     </div></div>`;
 }
@@ -1956,8 +1961,9 @@ document.addEventListener('input',e=>{
     return;
   }
   const el=e.target.closest('[data-path]'); if(!el) return;
-  // a snapshot is read-only, with one door left open: who I am, so a reviewer can sign their comments
-  if(isSnapshot() && el.dataset.path!=='meta.me') return;
+  /* a snapshot is read-only, with the review left open: who I am, and the comments themselves, so a
+     reviewer can write and correct what they said */
+  if(isSnapshot() && el.dataset.path!=='meta.me' && !el.dataset.path.startsWith('comments.')) return;
   /* the AI badge tracks the marker as it is typed — deleting the `=== AI ===` line has to clear the
      label right away, and no render() may happen here (it would take the caret with it) */
   const badge=$(`[data-aibadge="${el.dataset.path}"]`);
@@ -2117,6 +2123,8 @@ document.addEventListener('click',e=>{
     if(c&&confirm('이 코멘트를 삭제할까요?')){ CMTS().splice(i,1); markDirty(); render(); }
     return;
   }
+  if(act==='cmt-edit'){ stashDraft(); CMTEDIT=b.dataset.cid; render(); return; }
+  if(act==='cmt-edit-done'){ CMTEDIT=null; markDirty(); render(); return; }
   if(act==='cmt-view'){ stashDraft(); CMTVIEW=b.dataset.view==='resolved'?'resolved':'open'; render(); return; }
   if(act==='cmt-goto'){
     const id=b.dataset.target; if(id==='plan') return;

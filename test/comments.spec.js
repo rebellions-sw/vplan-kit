@@ -355,3 +355,33 @@ test('resolving a comment takes its replies with it, both ways', async ({ page }
   await page.locator('.thread .cmt').first().locator('[data-act="cmt-reopen"]').click();
   expect(await page.evaluate(() => DATA.comments.map(c => c.resolved))).toEqual([false, false]);
 });
+
+test('a comment and its reply can be edited in place', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    DATA.comments = [
+      { cid: 'C001', target: 'plan', author: 'a', to: [], text: '원문', created: '2026-09-16 10:00:00', resolved: false },
+      { cid: 'C002', target: 'plan', author: 'b', to: [], text: '답글 원문', reply_to: 'C001',
+        created: '2026-09-16 10:05:00', resolved: false },
+    ];
+    THOPEN.add('p:C001');
+    render();
+  });
+
+  // both carry 수정; only the root carries 답변/해결
+  await expect(page.locator('.thread .cmt').first().locator('.cmt-acts .btn')).toHaveText(['답변', '해결', '수정', '삭제']);
+  await expect(page.locator('.cmt.reply .cmt-acts .btn')).toHaveText(['수정', '삭제']);
+
+  await page.locator('.cmt.reply [data-act="cmt-edit"]').click();
+  const box = page.locator('[data-path="comments.1.text"]');
+  await expect(box).toHaveCount(1);
+  await box.click();
+  await box.evaluate(el => { el.textContent = '답글 고침'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.click('[data-act="cmt-edit-done"]');
+
+  expect(await page.evaluate(() => DATA.comments[1].text)).toBe('답글 고침');
+  await expect(page.locator('.cmt.reply .cmt-txt')).toHaveText('답글 고침');
+  expect(await page.evaluate(() => DATA.comments[1].reply_to)).toBe('C001');   // still a reply
+});
