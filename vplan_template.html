@@ -73,7 +73,7 @@
   --ok:#1a7f4b; --ok-bg:#e6f4ec; --warn:#9a6200; --warn-bg:#fdf1dd;
   --err:#b4232a; --err-bg:#fceceb; --mut:#6b7280; --mut-bg:#eef0f3;
   --row-head:#f4f6f8;
-  --rail-w:300px;
+  --rail-w:450px;
   --radius:8px; --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
@@ -129,7 +129,7 @@ body{
 /* the rail takes its width out of the page, so give the page that much more to work with before
    the max-width bites — otherwise the tables are squeezed on exactly the screens that have room */
 #app.railed{padding-right:var(--rail-w);max-width:calc(1400px + var(--rail-w))}
-@media (max-width:1200px){:root{--rail-w:240px}}   /* on a small screen the table needs the pixels more */
+@media (max-width:1200px){:root{--rail-w:340px}}   /* on a small screen the table needs the pixels more */
 .rail{position:fixed;top:0;right:0;bottom:0;width:var(--rail-w);z-index:55;display:flex;flex-direction:column;
   background:var(--panel-2);border-left:1px solid var(--line)}
 .rail-head{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);
