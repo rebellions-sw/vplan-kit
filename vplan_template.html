@@ -1125,7 +1125,7 @@ function topoBlock(){ return DIAGRAMS.map(([k,t])=>diagramBlock(k,t)).join(''); 
    changes a row, and a snapshot (frozen rows) still takes comments so a reviewer can answer. */
 const CMTS=()=>DATA.comments||(DATA.comments=[]);
 const cmtsOf=t=>CMTS().filter(c=>c.target===t);
-const openOf=t=>cmtsOf(t).filter(c=>!c.resolved);
+const openOf=t=>cmtsOf(t).filter(c=>!c.resolved&&!c.reply_to);   // a reply is not its own comment
 const meName=()=>String(DATA.meta.me||'').trim();
 const cmtVisible=c=>CMTVIEW==='open'?!c.resolved:!!c.resolved;
 function cmtBtn(target){
@@ -1263,7 +1263,7 @@ function thread(g){
         <span class="caret">${open?'▾':'▸'}</span></button>
       <span class="sid" ${jump} title="${g.target==='plan'?'플랜 전체':'해당 행으로 이동'}">${esc(g.title)}</span>
       <span class="who" data-act="cmt-thread" data-key="${esc(g.key)}">${esc(g.sub)}</span>
-      <div class="spacer"></div><span class="th-n">${g.list.length}</span></div>
+      <div class="spacer"></div><span class="th-n">${g.list.filter(({c})=>!c.reply_to).length}</span></div>
     ${open?`${g.list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
     ${CMTFOCUS===g.key?composer(g.target):''}`:''}</div>`;
 }
@@ -1271,8 +1271,8 @@ function railPane(){
   const groups=railGroups();
   // a composer with nowhere to sit yet — "+ 추가", or the first comment on a row
   const fresh=CMTFOCUS&&!groups.some(g=>g.key===CMTFOCUS);
-  const open=CMTS().filter(c=>!c.resolved).length;
-  const done=CMTS().filter(c=>c.resolved).length;
+  const open=CMTS().filter(c=>!c.resolved&&!c.reply_to).length;   // replies are part of a comment,
+  const done=CMTS().filter(c=>c.resolved&&!c.reply_to).length;    // not comments of their own
   const newTarget=fresh?(CMTFOCUS.startsWith('t:')?CMTFOCUS.slice(2):'plan'):null;
   return `<div class="rail">
     <div class="rail-head"><b>Comments</b>

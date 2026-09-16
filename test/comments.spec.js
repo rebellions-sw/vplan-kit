@@ -385,3 +385,22 @@ test('a comment and its reply can be edited in place', async ({ page }) => {
   await expect(page.locator('.cmt.reply .cmt-txt')).toHaveText('답글 고침');
   expect(await page.evaluate(() => DATA.comments[1].reply_to)).toBe('C001');   // still a reply
 });
+
+test('a reply does not bump any count — it belongs to the comment it answers', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await writeComment(page, 'F01', '질문 하나');
+
+  const railCount = () => page.locator('.rail-head .badge').first().innerText();
+  const threadCount = () => page.locator('.thread[data-thread="F01"] .th-n').innerText();
+  const rowBadge = () => page.locator('[data-act="cmt"][data-target="F01"] .cmt-n').innerText();
+  expect([await railCount(), await threadCount(), await rowBadge()]).toEqual(['1 open', '1', '1']);
+
+  await page.locator('.thread[data-thread="F01"] .cmt [data-act="cmt"][data-reply]').click();
+  await page.fill('#cmt-text', '거기에 대한 답');
+  await page.click('[data-act="cmt-add"]');
+
+  await expect(page.locator('.cmt.reply .cmt-txt')).toHaveText('거기에 대한 답');   // the reply is there
+  expect([await railCount(), await threadCount(), await rowBadge()]).toEqual(['1 open', '1', '1']);
+});
