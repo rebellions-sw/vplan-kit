@@ -176,6 +176,8 @@ body{
   font:700 10px/1 inherit;padding:3px 5px}
 .men > .men-x:hover{opacity:1;color:var(--err);background:var(--err-bg)}
 .composer{padding:8px 9px;border-top:1px solid var(--line-2);background:var(--panel-2)}
+.cmp-reply{font-size:11px;color:var(--mut);margin-bottom:5px}
+.cmt.reply{border-left:2px solid var(--accent-soft);margin-left:12px}
 .composer textarea{width:100%;min-height:54px;resize:vertical;font:inherit;font-size:12.5px;line-height:1.5;
   padding:6px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
 .composer textarea:focus{outline:none;border-color:var(--accent)}
@@ -596,6 +598,7 @@ let DIAZ = null;             // the meta key currently open full-screen (click t
    message being typed, never DATA — a draft is not the plan) are state. */
 let CMTFOCUS = null;
 let CMTDRAFT = {text:'', to:[]};
+let CMTREPLY = null;         // the cid being answered — a reply lands under it, not at the end
 let CMTVIEW = 'open';        // which half of the conversation the rail shows: 'open' | 'resolved'
 const THOPEN = new Set();    // targets whose thread is unfolded; closed, a thread is one line
 let OPEN = new Set();          // expanded testcase ids
@@ -1172,20 +1175,23 @@ function atText(t){
 function cmtCard(c,i){
   /* the thread above already folds to one line, so a second fold in here only hid the text you
      opened the thread to read */
-  return `<div class="cmt${c.resolved?' done':''}">
+  return `<div class="cmt${c.resolved?' done':''}${c.reply_to?' reply':''}">
     <div class="cmt-top"><span class="au">${esc(c.author||'—')}</span>
       ${(c.to||[]).map(x=>`<span class="mention">@${esc(x)}</span>`).join('')}
       <span class="spacer"></span><span class="when">${esc(c.created||'')}</span></div>
     <div class="cmt-txt">${atText(c.text||'')}</div>
     <div class="cmt-acts">
-      <button class="btn sm" data-act="cmt" data-target="${esc(c.target)}" title="이 스레드에 이어서 답니다">답변</button>
+      <button class="btn sm" data-act="cmt" data-target="${esc(c.target)}" data-reply="${esc(c.cid||'')}"
+        title="이 코멘트 바로 아래에 답니다">답변</button>
       <button class="btn sm" data-act="${c.resolved?'cmt-reopen':'cmt-resolve'}" data-i="${i}">${c.resolved?'다시 열기':'해결'}</button>
       <button class="btn sm" data-act="cmt-del" data-i="${i}" title="이 코멘트를 지웁니다">삭제</button>
     </div></div>`;
 }
 function composer(t){
   const people=DATA.meta.people||[];
+  const to=CMTREPLY?CMTS().find(c=>c.cid===CMTREPLY):null;
   return `<div class="composer">
+    ${to?`<div class="cmp-reply">↳ <b>${esc(to.author||'')}</b> 의 코멘트에 답변</div>`:''}
     <div class="cmp-to">${people.map(n=>`<span class="men${CMTDRAFT.to.includes(n)?' on':''}">
         <button class="mention${CMTDRAFT.to.includes(n)?'':' off'}" data-act="cmt-to" data-name="${esc(n)}"
           title="이 사람을 태그">@${esc(n)}</button>
@@ -1941,7 +1947,17 @@ function addComment(target){
   if(!text){ toast('코멘트 내용을 적어주세요'); return; }
   const n=CMTS().reduce((m,c)=>{const g=String(c.cid||'').match(/^C(\d+)$/); return g?Math.max(m,+g[1]):m;},0);
   const cid='C'+String(n+1).padStart(3,'0');
-  CMTS().push({cid,target,author:meName(),to:[...CMTDRAFT.to],text,created:stampNow(),resolved:false});
+  const row={cid,target,author:meName(),to:[...CMTDRAFT.to],text,created:stampNow(),resolved:false};
+  /* A reply belongs under the comment it answers — at the end of the thread it reads as a new topic.
+     It lands after that comment and after any replies already hanging off it. */
+  const at=CMTREPLY?CMTS().findIndex(c=>c.cid===CMTREPLY):-1;
+  if(at>=0){
+    row.reply_to=CMTREPLY;
+    let k=at+1;
+    while(k<CMTS().length && CMTS()[k].reply_to===CMTREPLY) k++;
+    CMTS().splice(k,0,row);
+  } else CMTS().push(row);
+  CMTREPLY=null;
   THOPEN.add(target);                     // the thread you wrote into stays open
   CMTDRAFT={text:'',to:[]};
   markDirty(); render(); toast(`${target} 에 코멘트 등록`);
@@ -2012,14 +2028,18 @@ document.addEventListener('click',e=>{
   if(act==='topo-zoom'){ const k=b.dataset.k; DIAZ=DIAZ===k?null:k; render(); return; }
   /* review rail. The draft lives in a textarea, not in DATA, so every action that re-renders has to
      pick it up first or the half-typed comment is gone. */
-  if(act==='cmt'){ stashDraft(); CMTFOCUS=b.dataset.target; THOPEN.add(b.dataset.target); render(); focusComposer(); return; }
+  if(act==='cmt'){
+    stashDraft();
+    CMTFOCUS=b.dataset.target; CMTREPLY=b.dataset.reply||null;
+    THOPEN.add(b.dataset.target); render(); focusComposer(); return;
+  }
   if(act==='cmt-thread'){
     stashDraft();
     const t=b.dataset.target;
     if(THOPEN.has(t)){ THOPEN.delete(t); if(CMTFOCUS===t) CMTFOCUS=null; } else THOPEN.add(t);
     render(); return;
   }
-  if(act==='cmt-cancel'){ CMTDRAFT={text:'',to:[]}; CMTFOCUS=null; render(); return; }
+  if(act==='cmt-cancel'){ CMTDRAFT={text:'',to:[]}; CMTFOCUS=null; CMTREPLY=null; render(); return; }
   if(act==='cmt-to'){
     stashDraft();
     const n=b.dataset.name, k=CMTDRAFT.to.indexOf(n);

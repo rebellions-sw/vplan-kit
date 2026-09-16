@@ -288,3 +288,41 @@ test('a comment can mention a row, and Refresh rewrites the mention', async ({ p
   expect(await page.evaluate(() => DATA.comments[0].text)).toContain('#VI001');
   expect(await page.evaluate(() => DATA.comments[0].text)).toContain('#TC900');
 });
+
+test('a reply lands under the comment it answers, not at the end of the thread', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    DATA.comments = [
+      { cid: 'C001', target: 'plan', author: 'a', to: [], text: '첫째', created: '2026-09-16 10:00:00', resolved: false },
+      { cid: 'C002', target: 'plan', author: 'a', to: [], text: '둘째', created: '2026-09-16 10:01:00', resolved: false },
+      { cid: 'C003', target: 'plan', author: 'a', to: [], text: '셋째', created: '2026-09-16 10:02:00', resolved: false },
+    ];
+    THOPEN.add('plan');
+    render();
+  });
+
+  // answer the first one
+  await page.locator('.thread[data-thread="plan"] .cmt').first().locator('[data-act="cmt"]').click();
+  await expect(page.locator('.cmp-reply')).toContainText('답변');
+  await page.fill('#cmt-text', '첫째에 대한 답');
+  await page.click('[data-act="cmt-add"]');
+
+  const texts = await page.$$eval('.thread[data-thread="plan"] .cmt-txt', els => els.map(e => e.textContent.trim()));
+  expect(texts).toEqual(['첫째', '첫째에 대한 답', '둘째', '셋째']);
+  await expect(page.locator('.cmt.reply .cmt-txt')).toHaveText('첫째에 대한 답');
+  expect(await page.evaluate(() => DATA.comments.find(c => c.text === '첫째에 대한 답').reply_to)).toBe('C001');
+
+  // a second reply to the same comment stacks under the first
+  await page.locator('.thread[data-thread="plan"] .cmt').first().locator('[data-act="cmt"]').click();
+  await page.fill('#cmt-text', '첫째에 대한 답 2');
+  await page.click('[data-act="cmt-add"]');
+  expect(await page.$$eval('.thread[data-thread="plan"] .cmt-txt', els => els.map(e => e.textContent.trim())))
+    .toEqual(['첫째', '첫째에 대한 답', '첫째에 대한 답 2', '둘째', '셋째']);
+
+  // and a fresh comment from the row button still goes to the end
+  await writeComment(page, 'plan', '맨 끝');
+  expect(await page.$$eval('.thread[data-thread="plan"] .cmt-txt', els => els.map(e => e.textContent.trim())))
+    .toEqual(['첫째', '첫째에 대한 답', '첫째에 대한 답 2', '둘째', '셋째', '맨 끝']);
+});
