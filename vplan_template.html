@@ -160,6 +160,10 @@ body{
 .cmt-top .au{font-weight:650;color:var(--ink)}
 .cmt-txt{font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .cmt-txt .at{color:var(--accent);font-weight:650}
+.rowtag{border:none;padding:0 5px;border-radius:9px;cursor:pointer;font:700 11px var(--mono);
+  background:var(--accent-soft);color:var(--accent)}
+.rowtag:hover{filter:brightness(.96)}
+.rowtag.gone{background:var(--err-bg);color:var(--err);text-decoration:line-through}
 .cmt-acts{display:flex;gap:4px;margin-top:5px}
 .mention{display:inline-block;padding:0 5px;border-radius:9px;font:600 10.5px var(--mono);
   background:var(--accent-soft);color:var(--accent)}
@@ -1151,7 +1155,20 @@ function tcItems(t){
   const fs=new Set(t.feature_refs||[]);
   return DATA.items.filter(it=>(it.feature_refs||[]).some(f=>fs.has(f))).map(it=>it.id);
 }
-function atText(t){ return esc(t).replace(/@([\w.\-가-힣]+)/g,'<span class="at">@$1</span>'); }
+/* A comment can mention two kinds of thing: @name a person, #F01 / #VI003 / #TC005 a row. A row
+   mention renders as the chip the tables use — it opens the drawer, or jumps, for a testcase — and
+   renumberIds() rewrites these ids in the text like any other reference. */
+const TAG_RE=/#(F\d+|VI\d+|TC\d+)\b/g;
+function atText(t){
+  return esc(t)
+    .replace(/@([\w.\-가-힣]+)/g,'<span class="at">@$1</span>')
+    .replace(TAG_RE,(m,id)=>{
+      const kind=id.startsWith('VI')?'item':id.startsWith('TC')?'testcase':'feature';
+      const gone=!(kind==='testcase'?DATA.testcases:kind==='item'?DATA.items:DATA.features).some(r=>r.id===id);
+      const act=kind==='testcase'?`data-act="cmt-goto" data-target="${id}"`:`data-act="peek" data-peek="${kind}" data-id="${id}"`;
+      return `<button class="rowtag${gone?' gone':''}" ${act} title="${id}${gone?' — 플랜에 없음':' · 내용 보기'}">${id}</button>`;
+    });
+}
 function cmtCard(c,i){
   /* the thread above already folds to one line, so a second fold in here only hid the text you
      opened the thread to read */
@@ -1175,7 +1192,7 @@ function composer(t){
         <button class="men-x" data-act="cmt-person-del" data-name="${esc(n)}" title="명단에서 빼기">✕</button>
       </span>`).join('')}
       <input class="newopt" data-newopt="people" placeholder="+ 사람" title="이름을 쓰고 Enter"></div>
-    <textarea id="cmt-text" placeholder="${esc(t)} 에 대한 코멘트 — Ctrl+Enter로 등록">${esc(CMTDRAFT.text)}</textarea>
+    <textarea id="cmt-text" placeholder="${esc(t)} 에 대한 코멘트 — 사람은 @이름, 행은 #F01 로 멘션 · Ctrl+Enter로 등록">${esc(CMTDRAFT.text)}</textarea>
     <div class="cmp-row"><button class="btn sm primary" data-act="cmt-add" data-target="${esc(t)}">등록</button>
       <button class="btn sm" data-act="cmt-cancel">취소</button><div class="spacer"></div>
       <span class="hint">작성자 ${meName()?esc(meName()):'— 위에 이름을 적어주세요'}</span></div>
@@ -1510,7 +1527,10 @@ function renumberIds(){
   (DATA.suggestions||[]).forEach(x=>{ if(x.accepted_as) x.accepted_as=m(x.accepted_as); });
   (DATA.audits||[]).forEach(x=>{ if(x.target) x.target=m(x.target);
     if(x.fix&&x.fix.feature_refs) x.fix.feature_refs=remap(x.fix.feature_refs); });
-  (DATA.comments||[]).forEach(c=>{ if(c.target) c.target=m(c.target); });   // a thread follows its row
+  (DATA.comments||[]).forEach(c=>{
+    if(c.target) c.target=m(c.target);                                     // a thread follows its row
+    if(c.text) c.text=String(c.text).replace(TAG_RE,(s0,id)=>'#'+m(id));   // ...and so do the tags in it
+  });
   Object.values(FILTER).forEach(f=>{                       // keep an active filter pointing at the same row
     ['vref','fref','rel'].forEach(k=>{ if(f[k]&&f[k]!=='__none__') f[k]=m(f[k]); });
   });
@@ -2027,7 +2047,7 @@ document.addEventListener('click',e=>{
   if(act==='cmt-view'){ stashDraft(); CMTVIEW=b.dataset.view==='resolved'?'resolved':'open'; render(); return; }
   if(act==='cmt-goto'){
     const id=b.dataset.target; if(id==='plan') return;
-    stashDraft(); TAB=String(id).startsWith('VI')?'items':'features'; render();
+    stashDraft(); TAB=String(id).startsWith('VI')?'items':String(id).startsWith('TC')?'testcases':'features'; render();
     requestAnimationFrame(()=>{
       const cells=[...document.querySelectorAll('.cell.id')].filter(c=>c.textContent.trim()===id);
       if(cells[0]) cells[0].scrollIntoView({block:'center'});

@@ -260,3 +260,31 @@ test('a thread is one line until opened, and the rail lists every target', async
   await page.click('.thread[data-thread="F01"] .th-fold');
   await expect(page.locator('.thread .cmt')).toHaveCount(0);
 });
+
+test('a comment can mention a row, and Refresh rewrites the mention', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    DATA.comments = [{ cid: 'C001', target: 'plan', author: 'a', to: [],
+      text: '#F02 와 #VI001 은 같이 봐야 함, #TC900 은 없는 행', created: '2026-09-16 10:00:00', resolved: false }];
+    THOPEN.add('plan');
+    render();
+  });
+
+  const tags = page.locator('.cmt-txt .rowtag');
+  await expect(tags).toHaveText(['F02', 'VI001', 'TC900']);
+  await expect(page.locator('.cmt-txt .rowtag.gone')).toHaveText('TC900');   // no such row
+
+  // a feature mention opens the drawer on that feature
+  await tags.first().click();
+  await expect(page.locator('.peek-pane .sid')).toHaveText('F02');
+  await page.click('[data-act="peek-close"]');
+
+  // Refresh renumbers rows and carries the mentions with it
+  await page.evaluate(() => { DATA.features.reverse(); render(); });   // F02 now sits first
+  await page.click('[data-act="renumber"]');
+  expect(await page.evaluate(() => DATA.comments[0].text)).toContain('#F01');
+  expect(await page.evaluate(() => DATA.comments[0].text)).toContain('#VI001');
+  expect(await page.evaluate(() => DATA.comments[0].text)).toContain('#TC900');
+});
