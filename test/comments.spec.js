@@ -325,3 +325,30 @@ test('a reply lands under the comment it answers, not at the end of the thread',
   expect(await page.$$eval('.thread[data-thread="plan"] .cmt-txt', els => els.map(e => e.textContent.trim())))
     .toEqual(['첫째', '첫째에 대한 답', '첫째에 대한 답 2', '둘째', '셋째', '맨 끝']);
 });
+
+test('resolving a comment takes its replies with it, both ways', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    DATA.comments = [
+      { cid: 'C001', target: 'plan', author: 'a', to: [], text: '질문', created: '2026-09-16 10:00:00', resolved: false },
+      { cid: 'C002', target: 'plan', author: 'b', to: [], text: '답변입니다', reply_to: 'C001',
+        created: '2026-09-16 10:05:00', resolved: false },
+    ];
+    THOPEN.add('p:C001');
+    render();
+  });
+  await expect(page.locator('.thread .cmt-txt')).toHaveText(['질문', '답변입니다']);
+
+  await page.locator('.thread .cmt').first().locator('[data-act="cmt-resolve"]').click();
+  expect(await page.evaluate(() => DATA.comments.map(c => c.resolved))).toEqual([true, true]);
+  await expect(page.locator('.thread')).toHaveCount(0);            // gone from the open view
+
+  await page.click('[data-act="cmt-view"][data-view="resolved"]');
+  await page.evaluate(() => { THOPEN.add('p:C001'); render(); });
+  await expect(page.locator('.thread .cmt-txt')).toHaveText(['질문', '답변입니다']);   // reply shows too
+
+  await page.locator('.thread .cmt').first().locator('[data-act="cmt-reopen"]').click();
+  expect(await page.evaluate(() => DATA.comments.map(c => c.resolved))).toEqual([false, false]);
+});

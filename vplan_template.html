@@ -1224,9 +1224,11 @@ function railGroups(){
   const vis=all.filter(({c})=>cmtVisible(c));
   const repliesOf=cid=>all.filter(({c})=>c.reply_to===cid);
   const groups=[];
-  // plan-wide: one group per root comment
-  vis.filter(({c})=>c.target==='plan'&&!c.reply_to).forEach(({c,i})=>{
-    const list=[{c,i},...repliesOf(c.cid).filter(x=>cmtVisible(x.c))];
+  // plan-wide: one group per root comment, shown whenever anything in it is visible — a resolved
+  // comment takes its replies along, and a reply alone must still find its way onto the screen
+  all.filter(({c})=>c.target==='plan'&&!c.reply_to).forEach(({c,i})=>{
+    const list=[{c,i},...repliesOf(c.cid)].filter(x=>cmtVisible(x.c));
+    if(!list.length) return;
     groups.push({key:'p:'+c.cid, target:'plan', title:'plan',
                  sub:(String(c.text||'').split('\n').find(l=>l.trim())||'').slice(0,40), list});
   });
@@ -2103,7 +2105,11 @@ document.addEventListener('click',e=>{
   if(act==='cmt-add'){ addComment(b.dataset.target); return; }
   if(act==='cmt-resolve'||act==='cmt-reopen'){
     const c=CMTS()[+b.dataset.i]; if(!c) return;
-    c.resolved=act==='cmt-resolve'; markDirty(); render(); return;
+    const on=act==='cmt-resolve';
+    c.resolved=on;
+    // a reply is part of what was said; resolving the comment takes its answers with it
+    CMTS().forEach(x=>{ if(x.reply_to===c.cid) x.resolved=on; });
+    markDirty(); render(); return;
   }
   if(act==='cmt-del'){
     const i=+b.dataset.i, c=CMTS()[i];
