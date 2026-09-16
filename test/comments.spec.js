@@ -188,3 +188,30 @@ test('replying starts from the comment itself, beside 해결 and 삭제', async 
   await page.click('[data-act="cmt-add"]');
   await expect(page.locator('.thread[data-thread="F01"] .cmt-txt')).toHaveText(['여기 확인해줘', '확인했어']);
 });
+
+test('the rail scrolls instead of squashing its threads', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    const long = '줄바꿈이 섞인 긴 코멘트\n'.repeat(12);
+    DATA.comments = Array.from({ length: 12 }, (_, i) => ({
+      cid: 'C' + String(i + 1).padStart(3, '0'), target: i % 2 ? 'F01' : 'F02',
+      author: 'nara.cho', to: [], text: long, created: '2026-09-16 10:00:00', resolved: false,
+    }));
+    render();
+  });
+
+  const m = await page.evaluate(() => {
+    const body = document.querySelector('.rail-body');
+    const clipped = [...document.querySelectorAll('.thread')]
+      .filter(t => t.scrollHeight > t.getBoundingClientRect().height + 1).length;
+    return { scrolls: body.scrollHeight > body.clientHeight, clipped };
+  });
+  expect(m.clipped).toBe(0);      // nothing is cut off inside its own box
+  expect(m.scrolls).toBe(true);   // the body carries the overflow
+
+  // and it really scrolls
+  await page.evaluate(() => { document.querySelector('.rail-body').scrollTop = 99999; });
+  expect(await page.evaluate(() => document.querySelector('.rail-body').scrollTop)).toBeGreaterThan(0);
+});
