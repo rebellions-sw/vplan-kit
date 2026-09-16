@@ -224,10 +224,10 @@ select.cell.phase{min-width:128px}
 .reflink > .peek{border:none;background:none;cursor:pointer;color:inherit;font:inherit;padding:0;text-decoration:underline;
   text-decoration-color:transparent;text-underline-offset:2px}
 .reflink > .peek:hover{text-decoration-color:currentColor}
-/* Peek drawer: bottom-right of the page, tucked against the comment rail without overlapping it,
-   and floating over the table rather than pushing it — the row you came from stays where it was. */
-.peek-pane{position:fixed;right:calc(var(--rail-w) + 16px);bottom:16px;z-index:60;
-  width:min(420px,calc(100vw - var(--rail-w) - 32px));max-height:calc(100vh - var(--topbar-h,60px) - 28px);
+/* Peek drawer: bottom right corner, floating OVER the comment rail — you open it to read one row
+   for a moment, and the rail is the least costly thing to cover while you do. */
+.peek-pane{position:fixed;right:16px;bottom:16px;z-index:70;
+  width:min(420px,calc(100vw - 32px));max-height:calc(100vh - var(--topbar-h,60px) - 28px);
   display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.18)}
 .peek-head{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 12px;border-bottom:1px solid var(--line-2);
