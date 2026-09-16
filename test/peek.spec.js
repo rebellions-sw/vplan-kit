@@ -27,7 +27,8 @@ test('clicking a linked VI id opens the drawer over the table with that item in 
   // it overlaps rather than reflowing: the feature row it came from has not moved
   const table = await page.locator('table').first().boundingBox();
   const box = await pane.boundingBox();
-  expect(box.x).toBeGreaterThan(table.x);
+  expect(box.x).toBeLessThan(table.x);                       // it opens in the left margin
+  expect(box.x + box.width).toBeGreaterThan(table.x);        // and overlaps the table rather than pushing it
   expect(await page.locator('[data-tab="features"].active').count()).toBe(1);   // still on the same tab
 });
 
@@ -79,4 +80,16 @@ test('the drawer never reaches the saved file', async ({ page }) => {
   // #app comes back empty: an open drawer lives in there, so nothing of it can survive
   const saved = await page.evaluate(() => serializeDoc());
   expect(saved).toMatch(/<div id="app"><\/div>/);
+});
+
+test('the drawer opens in the left margin, clear of the comment rail', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.click('.reflink [data-act="peek"]');
+  const pane = await page.locator('.peek-pane').boundingBox();
+  const rail = await page.locator('.rail').boundingBox();
+  const vw = page.viewportSize().width;
+
+  expect(pane.x).toBeLessThan(vw - pane.x - pane.width);   // hugs the left edge, not the right
+  expect(pane.x + pane.width).toBeLessThanOrEqual(rail.x); // and never reaches the rail
 });

@@ -145,7 +145,11 @@ body{
 .rail-body > *{flex:0 0 auto}
 .thread{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
 .thread.focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-.th-head{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--row-head);border-bottom:1px solid var(--line-2)}
+.th-head{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--row-head)}
+.thread.open > .th-head{border-bottom:1px solid var(--line-2)}
+.th-fold{border:none;background:none;cursor:pointer;color:var(--mut);font-size:9px;padding:0 2px}
+.th-head > .who{cursor:pointer}
+.th-n{font:600 10px var(--mono);color:var(--mut)}
 .th-head .sid{font:700 11px var(--mono);color:var(--accent);cursor:pointer}
 .th-head .who{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cmt{padding:7px 9px;border-top:1px solid var(--line-2)}
@@ -227,9 +231,9 @@ select.cell.phase{min-width:128px}
 .reflink > .peek{border:none;background:none;cursor:pointer;color:inherit;font:inherit;padding:0;text-decoration:underline;
   text-decoration-color:transparent;text-underline-offset:2px}
 .reflink > .peek:hover{text-decoration-color:currentColor}
-/* Peek drawer: overlaps the table on the right rather than pushing it, so the row you came from
-   stays where it was. Fixed to the viewport, under the top bar, never wider than the screen. */
-.peek-pane{position:fixed;right:16px;top:calc(var(--topbar-h,60px) + 12px);z-index:60;
+/* Peek drawer: it opens in the left margin, away from the comment rail on the right, and overlaps
+   the table rather than pushing it, so the row you came from stays where it was. */
+.peek-pane{position:fixed;left:16px;top:calc(var(--topbar-h,60px) + 12px);z-index:60;
   width:min(420px,calc(100vw - 32px));max-height:calc(100vh - var(--topbar-h,60px) - 28px);
   display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.18)}
@@ -597,6 +601,7 @@ let CMTFOCUS = null;
 let CMTDRAFT = {text:'', to:[]};
 let CMTVIEW = 'open';        // which half of the conversation the rail shows: 'open' | 'resolved'
 const CMTOPEN = new Set();   // cids whose body is unfolded — a rail of fourteen essays is unreadable
+const THOPEN = new Set();    // targets whose thread is unfolded; closed, a thread is one line
 let OPEN = new Set();          // expanded testcase ids
 let DIRTY = false;
 
@@ -1192,11 +1197,16 @@ function thread(t){
   const list=CMTS().map((c,i)=>({c,i})).filter(({c})=>c.target===t&&cmtVisible(c));
   const row=rowOfId(t);
   const name=t==='plan'?'플랜 전체':((row&&row.name)||'없는 행');
-  return `<div class="thread${CMTFOCUS===t?' focus':''}" data-thread="${esc(t)}">
-    <div class="th-head"><span class="sid" data-act="cmt-goto" data-target="${esc(t)}" title="해당 행으로 이동">${esc(t)}</span>
-      <span class="who">${esc(name)}</span><div class="spacer"></div></div>
-    ${list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
-    ${CMTFOCUS===t?composer(t):''}</div>`;
+  const open=THOPEN.has(t)||CMTFOCUS===t;
+  return `<div class="thread${CMTFOCUS===t?' focus':''}${open?' open':''}" data-thread="${esc(t)}">
+    <div class="th-head">
+      <button class="th-fold" data-act="cmt-thread" data-target="${esc(t)}" title="${open?'접기':'펼치기'}">
+        <span class="caret">${open?'▾':'▸'}</span></button>
+      <span class="sid" data-act="cmt-goto" data-target="${esc(t)}" title="해당 행으로 이동">${esc(t)}</span>
+      <span class="who" data-act="cmt-thread" data-target="${esc(t)}">${esc(name)}</span>
+      <div class="spacer"></div><span class="th-n">${list.length}</span></div>
+    ${open?`${list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
+    ${CMTFOCUS===t?composer(t):''}`:''}</div>`;
 }
 function railPane(){
   const rank=id=>{
@@ -1924,7 +1934,7 @@ function addComment(target){
   const n=CMTS().reduce((m,c)=>{const g=String(c.cid||'').match(/^C(\d+)$/); return g?Math.max(m,+g[1]):m;},0);
   const cid='C'+String(n+1).padStart(3,'0');
   CMTS().push({cid,target,author:meName(),to:[...CMTDRAFT.to],text,created:stampNow(),resolved:false});
-  CMTOPEN.add(cid);                       // what you just wrote stays open
+  CMTOPEN.add(cid); THOPEN.add(target);   // what you just wrote stays open, thread and all
   CMTDRAFT={text:'',to:[]};
   markDirty(); render(); toast(`${target} 에 코멘트 등록`);
 }
@@ -1994,7 +2004,13 @@ document.addEventListener('click',e=>{
   if(act==='topo-zoom'){ const k=b.dataset.k; DIAZ=DIAZ===k?null:k; render(); return; }
   /* review rail. The draft lives in a textarea, not in DATA, so every action that re-renders has to
      pick it up first or the half-typed comment is gone. */
-  if(act==='cmt'){ stashDraft(); CMTFOCUS=b.dataset.target; render(); focusComposer(); return; }
+  if(act==='cmt'){ stashDraft(); CMTFOCUS=b.dataset.target; THOPEN.add(b.dataset.target); render(); focusComposer(); return; }
+  if(act==='cmt-thread'){
+    stashDraft();
+    const t=b.dataset.target;
+    if(THOPEN.has(t)){ THOPEN.delete(t); if(CMTFOCUS===t) CMTFOCUS=null; } else THOPEN.add(t);
+    render(); return;
+  }
   if(act==='cmt-cancel'){ CMTDRAFT={text:'',to:[]}; CMTFOCUS=null; render(); return; }
   if(act==='cmt-to'){
     stashDraft();
