@@ -199,6 +199,7 @@ test('the rail scrolls instead of squashing its threads', async ({ page }) => {
       cid: 'C' + String(i + 1).padStart(3, '0'), target: i % 2 ? 'F01' : 'F02',
       author: 'nara.cho', to: [], text: long, created: '2026-09-16 10:00:00', resolved: false,
     }));
+    DATA.comments.forEach(c => CMTOPEN.add(c.cid));    // folded comments are short by design
     render();
   });
 
@@ -214,4 +215,31 @@ test('the rail scrolls instead of squashing its threads', async ({ page }) => {
   // and it really scrolls
   await page.evaluate(() => { document.querySelector('.rail-body').scrollTop = 99999; });
   expect(await page.evaluate(() => document.querySelector('.rail-body').scrollTop)).toBeGreaterThan(0);
+});
+
+test('a comment is folded until you open it; what you just wrote stays open', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await beMe(page, 'nara.cho');
+  await page.evaluate(() => {
+    DATA.comments = [{ cid: 'C001', target: 'F01', author: 'jinsu.kim', to: [],
+      text: '첫 줄 요약\n두 번째 줄은 접혀 있어야 한다', created: '2026-09-16 10:00:00', resolved: false }];
+    render();
+  });
+
+  // folded: header and a one-line peek, no body and no buttons
+  await expect(page.locator('.cmt .cmt-txt')).toHaveCount(0);
+  await expect(page.locator('.cmt .cmt-acts')).toHaveCount(0);
+  await expect(page.locator('.cmt-peek')).toHaveText('첫 줄 요약');
+
+  await page.click('.cmt-top');
+  await expect(page.locator('.cmt .cmt-txt')).toHaveCount(1);
+  await expect(page.locator('.cmt .cmt-acts .btn')).toHaveText(['답변', '해결', '삭제']);
+  await page.click('.cmt-top');
+  await expect(page.locator('.cmt .cmt-txt')).toHaveCount(0);
+
+  // a comment you write yourself opens, so you can see what landed
+  await writeComment(page, 'F02', '내가 쓴 것');
+  const mine = page.locator('.thread[data-thread="F02"] .cmt');
+  await expect(mine.locator('.cmt-txt')).toHaveText('내가 쓴 것');
 });
