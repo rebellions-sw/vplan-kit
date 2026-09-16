@@ -1129,6 +1129,12 @@ function cmtBtn(target){
     data-target="${esc(target)}" title="${tip}">💬${n?`<span class="cmt-n">${n}</span>`:''}</button>`;
 }
 const rowOfId=id=>(String(id).startsWith('VI')?DATA.items:DATA.features).find(r=>r.id===id);
+/* which rail group a comment lives in — its row, or, plan-wide, the root comment of its little thread */
+function groupKeyOf(cid){
+  const c=CMTS().find(x=>x.cid===cid); if(!c) return null;
+  if(c.target!=='plan') return 't:'+c.target;
+  return 'p:'+(c.reply_to||c.cid);
+}
 /* A testcase names features; the verification items it exercises follow from them. Derived, never
    stored — otherwise the two lists drift and the plan has two answers to the same question. */
 /* The items a test runs, grouped by who judges them — the same list read as "and who checks it".
@@ -1204,33 +1210,56 @@ function composer(t){
       <span class="hint">작성자 ${meName()?esc(meName()):'— 위에 이름을 적어주세요'}</span></div>
   </div>`;
 }
-function thread(t){
-  const list=CMTS().map((c,i)=>({c,i})).filter(({c})=>c.target===t&&cmtVisible(c));
-  const row=rowOfId(t);
-  const name=t==='plan'?'플랜 전체':((row&&row.name)||'없는 행');
-  const open=THOPEN.has(t)||CMTFOCUS===t;
-  return `<div class="thread${CMTFOCUS===t?' focus':''}${open?' open':''}" data-thread="${esc(t)}">
-    <div class="th-head">
-      <button class="th-fold" data-act="cmt-thread" data-target="${esc(t)}" title="${open?'접기':'펼치기'}">
-        <span class="caret">${open?'▾':'▸'}</span></button>
-      <span class="sid" data-act="cmt-goto" data-target="${esc(t)}" title="해당 행으로 이동">${esc(t)}</span>
-      <span class="who" data-act="cmt-thread" data-target="${esc(t)}">${esc(name)}</span>
-      <div class="spacer"></div><span class="th-n">${list.length}</span></div>
-    ${open?`${list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
-    ${CMTFOCUS===t?composer(t):''}`:''}</div>`;
-}
-function railPane(){
+/* The rail lists groups, not targets: a row's comments are one group, but each plan-wide comment is
+   its own — they are separate topics that happen to share "no particular row". A group is keyed so
+   folding, focus and the composer can all address one of them. */
+function railGroups(){
+  const all=CMTS().map((c,i)=>({c,i}));
+  const vis=all.filter(({c})=>cmtVisible(c));
+  const repliesOf=cid=>all.filter(({c})=>c.reply_to===cid);
+  const groups=[];
+  // plan-wide: one group per root comment
+  vis.filter(({c})=>c.target==='plan'&&!c.reply_to).forEach(({c,i})=>{
+    const list=[{c,i},...repliesOf(c.cid).filter(x=>cmtVisible(x.c))];
+    groups.push({key:'p:'+c.cid, target:'plan', title:'plan',
+                 sub:(String(c.text||'').split('\n').find(l=>l.trim())||'').slice(0,40), list});
+  });
+  // rows: one group per target, in plan order
   const rank=id=>{
-    if(id==='plan') return -1;
     const f=DATA.features.findIndex(x=>x.id===id); if(f>=0) return f;
     const v=DATA.items.findIndex(x=>x.id===id);    if(v>=0) return 1000+v;
+    const t=DATA.testcases.findIndex(x=>x.id===id);if(t>=0) return 2000+t;
     return 9999;                                   // a comment whose row is gone still shows, at the end
   };
-  const targets=[...new Set(CMTS().map(c=>c.target))];
-  if(CMTFOCUS&&!targets.includes(CMTFOCUS)) targets.push(CMTFOCUS);
-  const vis=targets.filter(t=>t===CMTFOCUS||cmtsOf(t).some(cmtVisible)).sort((a,b)=>rank(a)-rank(b));
+  [...new Set(vis.filter(({c})=>c.target!=='plan').map(({c})=>c.target))]
+    .sort((a,b)=>rank(a)-rank(b))
+    .forEach(t=>{
+      const row=rowOfId(t)||DATA.testcases.find(x=>x.id===t);
+      groups.push({key:'t:'+t, target:t, title:t, sub:(row&&row.name)||'없는 행',
+                   list:vis.filter(({c})=>c.target===t)});
+    });
+  return groups;
+}
+function thread(g){
+  const open=THOPEN.has(g.key)||CMTFOCUS===g.key;
+  const jump=g.target!=='plan'?`data-act="cmt-goto" data-target="${esc(g.target)}"`:'';
+  return `<div class="thread${CMTFOCUS===g.key?' focus':''}${open?' open':''}" data-thread="${esc(g.target)}" data-key="${esc(g.key)}">
+    <div class="th-head">
+      <button class="th-fold" data-act="cmt-thread" data-key="${esc(g.key)}" title="${open?'접기':'펼치기'}">
+        <span class="caret">${open?'▾':'▸'}</span></button>
+      <span class="sid" ${jump} title="${g.target==='plan'?'플랜 전체':'해당 행으로 이동'}">${esc(g.title)}</span>
+      <span class="who" data-act="cmt-thread" data-key="${esc(g.key)}">${esc(g.sub)}</span>
+      <div class="spacer"></div><span class="th-n">${g.list.length}</span></div>
+    ${open?`${g.list.map(({c,i})=>cmtCard(c,i)).join('')||'<div class="cmt"><span class="hint">보이는 코멘트가 없습니다</span></div>'}
+    ${CMTFOCUS===g.key?composer(g.target):''}`:''}</div>`;
+}
+function railPane(){
+  const groups=railGroups();
+  // a composer with nowhere to sit yet — "+ 추가", or the first comment on a row
+  const fresh=CMTFOCUS&&!groups.some(g=>g.key===CMTFOCUS);
   const open=CMTS().filter(c=>!c.resolved).length;
   const done=CMTS().filter(c=>c.resolved).length;
+  const newTarget=fresh?(CMTFOCUS.startsWith('t:')?CMTFOCUS.slice(2):'plan'):null;
   return `<div class="rail">
     <div class="rail-head"><b>Comments</b>
       <span class="badge ${open?'b-warn':'b-ok'}">${open} open</span>
@@ -1240,9 +1269,14 @@ function railPane(){
         title="아직 해결되지 않은 코멘트">open ${open}</button>
       <button class="btn sm${CMTVIEW==='resolved'?' primary':''}" data-act="cmt-view" data-view="resolved"
         title="해결된 코멘트">resolved ${done}</button>
-      <div class="spacer"></div><button class="btn sm" data-act="cmt" data-target="plan" title="특정 행이 아닌, 플랜 전체에 대한 코멘트">+ 추가</button></div>
-    <div class="rail-body">${vis.map(thread).join('')
-      ||'<span class="hint">아직 코멘트가 없습니다 — 각 행의 💬 를 누르면 여기에 스레드가 생깁니다.</span>'}</div>
+      <div class="spacer"></div><button class="btn sm" data-act="cmt" data-key="new" data-target="plan"
+        title="특정 행이 아닌, 플랜 전체에 대한 새 코멘트">+ 추가</button></div>
+    <div class="rail-body">${fresh?`<div class="thread focus open">
+        <div class="th-head"><span class="caret">▾</span>
+          <span class="sid">${esc(newTarget)}</span><span class="who">새 코멘트</span></div>
+        ${composer(newTarget)}</div>`:''}
+      ${groups.map(thread).join('')
+      ||(fresh?'':'<span class="hint">아직 코멘트가 없습니다 — 각 행의 💬 를 누르면 여기에 스레드가 생깁니다.</span>')}</div>
   </div>`;
 }
 
@@ -1958,7 +1992,8 @@ function addComment(target){
     CMTS().splice(k,0,row);
   } else CMTS().push(row);
   CMTREPLY=null;
-  THOPEN.add(target);                     // the thread you wrote into stays open
+  THOPEN.add(groupKeyOf(cid)||('t:'+target));   // the group you wrote into stays open
+  CMTFOCUS=null;
   CMTDRAFT={text:'',to:[]};
   markDirty(); render(); toast(`${target} 에 코멘트 등록`);
 }
@@ -2030,13 +2065,17 @@ document.addEventListener('click',e=>{
      pick it up first or the half-typed comment is gone. */
   if(act==='cmt'){
     stashDraft();
-    CMTFOCUS=b.dataset.target; CMTREPLY=b.dataset.reply||null;
-    THOPEN.add(b.dataset.target); render(); focusComposer(); return;
+    CMTREPLY=b.dataset.reply||null;
+    // focus a group by key: the one holding the comment being answered, the row's own, or a fresh one
+    const key=b.dataset.key||(CMTREPLY?groupKeyOf(CMTREPLY):'t:'+b.dataset.target);
+    CMTFOCUS=key==='new'?'new':key;
+    if(key!=='new') THOPEN.add(key);
+    render(); focusComposer(); return;
   }
   if(act==='cmt-thread'){
     stashDraft();
-    const t=b.dataset.target;
-    if(THOPEN.has(t)){ THOPEN.delete(t); if(CMTFOCUS===t) CMTFOCUS=null; } else THOPEN.add(t);
+    const k=b.dataset.key;
+    if(THOPEN.has(k)){ THOPEN.delete(k); if(CMTFOCUS===k) CMTFOCUS=null; } else THOPEN.add(k);
     render(); return;
   }
   if(act==='cmt-cancel'){ CMTDRAFT={text:'',to:[]}; CMTFOCUS=null; CMTREPLY=null; render(); return; }

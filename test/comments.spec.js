@@ -55,7 +55,6 @@ test('the rail shows open or resolved, one or the other', async ({ page }) => {
 
   await writeComment(page, 'F01', 'still open');
   await writeComment(page, 'F02', 'about to be resolved');
-  await page.click('[data-act="cmt-cancel"]');                    // an open composer pins its thread
   await expect(page.locator('.thread')).toHaveCount(2);
 
   await page.locator('.thread[data-thread="F02"] [data-act="cmt-resolve"]').click();
@@ -135,6 +134,7 @@ test('a name can be taken off the tag roster; comments already written keep it',
   await page.evaluate(() => { DATA.meta.people = ['jinsu.kim', 'leaving.soon']; render(); });
 
   await writeComment(page, 'F01', '확인 부탁', ['leaving.soon']);
+  await page.click('[data-act="cmt"][data-target="F01"]');       // reopen a composer to see the roster
   await expect(page.locator('.cmp-to .men')).toHaveCount(2);
 
   await page.click('[data-act="cmt-person-del"][data-name="leaving.soon"]');
@@ -175,8 +175,7 @@ test('replying starts from the comment itself, beside 해결 and 삭제', async 
   await openVplan(page);
   await seed(page);
   await beMe(page, 'nara.cho');
-  await writeComment(page, 'F01', '여기 확인해줘');
-  await page.click('[data-act="cmt-cancel"]');                 // close the composer
+  await writeComment(page, 'F01', '여기 확인해줘');            // posting closes the composer
 
   const acts = page.locator('.thread[data-thread="F01"] .cmt .cmt-acts .btn');
   await expect(acts).toHaveText(['답변', '해결', '삭제']);
@@ -199,7 +198,7 @@ test('the rail scrolls instead of squashing its threads', async ({ page }) => {
       cid: 'C' + String(i + 1).padStart(3, '0'), target: i % 2 ? 'F01' : 'F02',
       author: 'nara.cho', to: [], text: long, created: '2026-09-16 10:00:00', resolved: false,
     }));
-    DATA.comments.forEach(c => THOPEN.add(c.target));    // threads are folded by default
+    DATA.comments.forEach(c => THOPEN.add(c.target === 'plan' ? 'p:' + c.cid : 't:' + c.target));
     render();
   });
 
@@ -268,7 +267,7 @@ test('a comment can mention a row, and Refresh rewrites the mention', async ({ p
   await page.evaluate(() => {
     DATA.comments = [{ cid: 'C001', target: 'plan', author: 'a', to: [],
       text: '#F02 와 #VI001 은 같이 봐야 함, #TC900 은 없는 행', created: '2026-09-16 10:00:00', resolved: false }];
-    THOPEN.add('plan');
+    DATA.comments.forEach(c => THOPEN.add(c.reply_to ? 'p:' + c.reply_to : 'p:' + c.cid));
     render();
   });
 
@@ -299,7 +298,7 @@ test('a reply lands under the comment it answers, not at the end of the thread',
       { cid: 'C002', target: 'plan', author: 'a', to: [], text: '둘째', created: '2026-09-16 10:01:00', resolved: false },
       { cid: 'C003', target: 'plan', author: 'a', to: [], text: '셋째', created: '2026-09-16 10:02:00', resolved: false },
     ];
-    THOPEN.add('plan');
+    DATA.comments.forEach(c => THOPEN.add(c.reply_to ? 'p:' + c.reply_to : 'p:' + c.cid));
     render();
   });
 
