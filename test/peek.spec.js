@@ -27,8 +27,8 @@ test('clicking a linked VI id opens the drawer over the table with that item in 
   // it overlaps rather than reflowing: the feature row it came from has not moved
   const table = await page.locator('table').first().boundingBox();
   const box = await pane.boundingBox();
-  expect(box.x).toBeLessThan(table.x);                       // it opens in the left margin
-  expect(box.x + box.width).toBeGreaterThan(table.x);        // and overlaps the table rather than pushing it
+  expect(box.x).toBeGreaterThan(table.x);                    // it opens over the right of the table
+  expect(box.x).toBeLessThan(table.x + table.width);         // overlapping it rather than pushing it
   expect(await page.locator('[data-tab="features"].active').count()).toBe(1);   // still on the same tab
 });
 
@@ -82,7 +82,7 @@ test('the drawer never reaches the saved file', async ({ page }) => {
   expect(saved).toMatch(/<div id="app"><\/div>/);
 });
 
-test('the drawer opens in the left margin, clear of the comment rail', async ({ page }) => {
+test('the drawer opens bottom-right, clear of the comment rail', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await page.click('.reflink [data-act="peek"]');
@@ -90,6 +90,8 @@ test('the drawer opens in the left margin, clear of the comment rail', async ({ 
   const rail = await page.locator('.rail').boundingBox();
   const vw = page.viewportSize().width;
 
-  expect(pane.x).toBeLessThan(vw - pane.x - pane.width);   // hugs the left edge, not the right
-  expect(pane.x + pane.width).toBeLessThanOrEqual(rail.x); // and never reaches the rail
+  const vh = page.viewportSize().height;
+  expect(pane.x).toBeGreaterThan(vw - pane.x - pane.width);       // sits on the right half
+  expect(pane.x + pane.width).toBeLessThanOrEqual(rail.x + 1);    // without reaching the rail
+  expect(vh - (pane.y + pane.height)).toBeLessThan(40);           // and hugs the bottom
 });
