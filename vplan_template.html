@@ -1193,9 +1193,10 @@ function cmtCard(c,i){
       <span class="spacer"></span><span class="when">${esc(c.created||'')}</span></div>
     <div class="cmt-txt">${atText(c.text||'')}</div>
     <div class="cmt-acts">
+      ${c.reply_to?'':`
       <button class="btn sm" data-act="cmt" data-target="${esc(c.target)}" data-reply="${esc(c.cid||'')}"
         title="이 코멘트 바로 아래에 답니다">답변</button>
-      <button class="btn sm" data-act="${c.resolved?'cmt-reopen':'cmt-resolve'}" data-i="${i}">${c.resolved?'다시 열기':'해결'}</button>
+      <button class="btn sm" data-act="${c.resolved?'cmt-reopen':'cmt-resolve'}" data-i="${i}">${c.resolved?'다시 열기':'해결'}</button>`}
       <button class="btn sm" data-act="cmt-del" data-i="${i}" title="이 코멘트를 지웁니다">삭제</button>
     </div></div>`;
 }

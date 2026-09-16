@@ -341,6 +341,9 @@ test('resolving a comment takes its replies with it, both ways', async ({ page }
   });
   await expect(page.locator('.thread .cmt-txt')).toHaveText(['질문', '답변입니다']);
 
+  // a reply carries no 답변/해결 of its own — the conversation is resolved as a whole
+  await expect(page.locator('.cmt.reply .cmt-acts .btn')).toHaveText(['삭제']);
+
   await page.locator('.thread .cmt').first().locator('[data-act="cmt-resolve"]').click();
   expect(await page.evaluate(() => DATA.comments.map(c => c.resolved))).toEqual([true, true]);
   await expect(page.locator('.thread')).toHaveCount(0);            // gone from the open view
