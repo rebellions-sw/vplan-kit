@@ -199,7 +199,7 @@ test('the rail scrolls instead of squashing its threads', async ({ page }) => {
       cid: 'C' + String(i + 1).padStart(3, '0'), target: i % 2 ? 'F01' : 'F02',
       author: 'nara.cho', to: [], text: long, created: '2026-09-16 10:00:00', resolved: false,
     }));
-    DATA.comments.forEach(c => { CMTOPEN.add(c.cid); THOPEN.add(c.target); });   // folded by default
+    DATA.comments.forEach(c => THOPEN.add(c.target));    // threads are folded by default
     render();
   });
 
@@ -217,36 +217,23 @@ test('the rail scrolls instead of squashing its threads', async ({ page }) => {
   expect(await page.evaluate(() => document.querySelector('.rail-body').scrollTop)).toBeGreaterThan(0);
 });
 
-test('a comment is folded until you open it; what you just wrote stays open', async ({ page }) => {
+test('opening a thread shows its comments in full, and what you write opens its thread', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await beMe(page, 'nara.cho');
   await page.evaluate(() => {
     DATA.comments = [{ cid: 'C001', target: 'F01', author: 'jinsu.kim', to: [],
-      text: '첫 줄 요약\n두 번째 줄은 접혀 있어야 한다', created: '2026-09-16 10:00:00', resolved: false }];
+      text: '첫 줄 요약\n두 번째 줄도 함께 보여야 한다', created: '2026-09-16 10:00:00', resolved: false }];
     render();
   });
 
-  // a thread is one line until you open it
-  await expect(page.locator('.thread .cmt')).toHaveCount(0);
-  await expect(page.locator('.thread .th-head .sid')).toHaveText('F01');
+  await expect(page.locator('.thread .cmt')).toHaveCount(0);      // one line per thread
   await page.click('.th-fold');
-
-  // folded: header and a one-line peek, no body and no buttons
-  await expect(page.locator('.thread .cmt-txt')).toHaveCount(0);
-  await expect(page.locator('.thread .cmt-acts')).toHaveCount(0);
-  await expect(page.locator('.cmt-peek')).toHaveText('첫 줄 요약');
-
-  await page.click('.cmt-top');
-  await expect(page.locator('.thread .cmt-txt')).toHaveCount(1);
+  await expect(page.locator('.thread .cmt-txt')).toHaveText('첫 줄 요약\n두 번째 줄도 함께 보여야 한다');
   await expect(page.locator('.thread .cmt-acts .btn')).toHaveText(['답변', '해결', '삭제']);
-  await page.click('.cmt-top');
-  await expect(page.locator('.thread .cmt-txt')).toHaveCount(0);
 
-  // a comment you write yourself opens, so you can see what landed
   await writeComment(page, 'F02', '내가 쓴 것');
-  const mine = page.locator('.thread[data-thread="F02"] .cmt');
-  await expect(mine.locator('.cmt-txt')).toHaveText('내가 쓴 것');
+  await expect(page.locator('.thread[data-thread="F02"] .cmt-txt')).toHaveText('내가 쓴 것');
 });
 
 test('a thread is one line until opened, and the rail lists every target', async ({ page }) => {
