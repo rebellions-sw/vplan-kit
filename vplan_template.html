@@ -639,10 +639,11 @@ function sel(path,opts,{cls=''}={}){
   const extra = opts.includes(v)?'':`<option value="${esc(v)}" selected>${esc(v)}</option>`;
   return `<select class="cell ${cls}"${isSnapshot()?' disabled':''} data-path="${path}" data-kind="select">${extra}${o}</select>`;
 }
-/* A description can hold both hands: what the user wrote, then `AI_MARK`, then what
-   vplan_feature_desc added below it. The marker IS the label — no separate flag to go stale, and
-   deleting the AI half removes the badge with it, because the badge is just "does this contain the
-   marker". Keep the string in one place; the skill writes exactly this. */
+/* A description can hold both hands: what the user wrote, then `AI_MARK`, then what a `*_desc` skill
+   added below it — the same rule in all three tables, features, items and testcases. The marker IS the
+   label — no separate flag to go stale, and deleting the AI half removes the badge with it, because the
+   badge is just "does this contain the marker". Keep the string in one place; the skills write exactly
+   this. */
 const AI_MARK='=== AI ===';
 const AI_BADGE=AI_MARK;
 /* The badge element is always in the DOM, empty when there is no marker, because typing must update
@@ -1457,7 +1458,7 @@ VIEW.testcases=()=>`
         ${field('Verification Items',tcItemGroups(t))}
       </div></td></tr>
     <tr class="subrow"><td></td><td></td>
-      <td colspan="5">${field('Description',cell(`${p}.description`,{cls:'boxed',ph:'무엇을 어떻게 만드는 테스트인가'}))}</td></tr>
+      <td colspan="5">${descField('Description',`${p}.description`,t,'무엇을 어떻게 만드는 테스트인가')}</td></tr>
     <tr class="subrow"><td></td><td></td>
       <td colspan="5"><div class="sub-panel"><h4>Sequences (agent별) ${addBtn(`${p}.uvm.sequences`,'seq','sequence')}</h4>
       <table><thead><tr><th style="width:22%">Agent</th><th style="width:28%">Sequence class</th><th>Params</th><th></th></tr></thead><tbody>

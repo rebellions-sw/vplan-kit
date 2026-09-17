@@ -81,7 +81,8 @@ vplan-kit installed.
      already says against the same sources (누락 / 불충분 / 미스매치);
      /vplan_feature_desc <IP> fills the description of feature rows you only titled,
      /vplan_item_desc <IP> the description/oracle/report of verification items;
-     /vplan_testcase_group <IP> groups features into testcases until none is uncovered.
+     /vplan_testcase_group <IP> groups features into testcases until none is uncovered,
+     /vplan_testcase_desc <IP> fills those testcases' description/sequences/hints.
 The skills work from any directory — they find this clone via ~/.vplan-kit/kit-path.
 Moved or re-cloned the kit? Just run ./install.sh again from the new location.
 If Save ever says the helper is down, saves land in ~/Downloads — recover them with:

@@ -89,3 +89,17 @@ test('the badge element is there even when a description has no marker', async (
   await expect(page.locator('[data-aibadge="features.0.description"]')).toHaveCount(1);
   await expect(page.locator('[data-aibadge="features.0.description"]')).toHaveText('');
 });
+
+test('all three tables carry the marker — features, items and testcases', async ({ page }) => {
+  await openVplan(page);
+  await seed(page);
+  await page.evaluate((m) => {
+    DATA.testcases = [{ id: 'TC001', name: 'tc_one', feature_refs: ['F01'], type: 'directed',
+      phase: 'pre-Alpha', status: 'editing', implemented: 'todo',
+      description: `내가 쓴 줄\n${m}\n- agent가 붙인 줄`, uvm: { sequences: [] }, tb_gen_hints: '' }];
+    render();
+  }, MARK);
+  await page.click('[data-tab="testcases"]');
+  await expect(page.locator('[data-aibadge="testcases.0.description"]')).toHaveText(MARK);
+  await expect(descRows(page).nth(0)).toContainText('내가 쓴 줄');
+});
