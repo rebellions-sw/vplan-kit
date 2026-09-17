@@ -6,10 +6,17 @@ import { openVplan, seed } from './helpers.js';
 
 const SVG = '<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="98" height="38"/><text x="8" y="24">TB</text></svg>';
 
-test('no topology, no block', async ({ page }) => {
+test('both folds are there before either drawing is', async ({ page }) => {
   await openVplan(page);
   await seed(page);
-  await expect(page.locator('[data-act="topo"]')).toHaveCount(0);
+  const heads = page.locator('[data-act="topo"]');
+  await expect(heads).toHaveCount(2);                             // the shape of the plan, not its contents
+  await expect(heads.nth(0)).toContainText('아직 비어 있습니다');
+  await heads.nth(0).click();
+  await expect(page.locator('.topo-empty')).toHaveCount(1);       // an empty state, not a drawing
+  await expect(page.locator('.topo-body')).toHaveCount(0);
+  await page.locator('.topo-empty').click();                      // nothing to blow up
+  await expect(page.locator('.topo-lens')).toHaveCount(0);
 });
 
 test('the fold sits under Input Source and opens and closes', async ({ page }) => {
@@ -17,8 +24,7 @@ test('the fold sits under Input Source and opens and closes', async ({ page }) =
   await seed(page);
   await page.evaluate(s => { DATA.meta.topology = s; render(); }, SVG);
 
-  const head = page.locator('[data-act="topo"]');
-  await expect(head).toHaveCount(1);
+  const head = page.locator('[data-act="topo"]').first();
   await expect(page.locator('.topo-body')).toHaveCount(0);        // closed by default
 
   // it is below the Input Source fold and above the tabs
@@ -158,11 +164,17 @@ test('the plan carries two drawings: topology, then DUT architecture', async ({ 
   expect(await lens.locator('svg text').first().textContent()).toBe('DUT');
 });
 
-test('a drawing the plan does not carry shows no fold', async ({ page }) => {
+test('a drawing the plan does not carry keeps its fold, empty', async ({ page }) => {
   await openVplan(page);
   await seed(page);
   await page.evaluate(a => { DATA.meta.architecture = a; render(); }, ARCH);
   const heads = page.locator('[data-act="topo"]');
-  await expect(heads).toHaveCount(1);
-  await expect(heads.nth(0)).toContainText('DUT architecture');
+  await expect(heads).toHaveCount(2);
+  await expect(heads.nth(0)).toContainText('아직 비어 있습니다');   // topology is still empty
+  await expect(heads.nth(1)).toContainText('DUT architecture');
+
+  await heads.nth(0).click();
+  await heads.nth(1).click();
+  await expect(page.locator('.topo-empty')).toHaveCount(1);
+  await expect(page.locator('.topo-body')).toHaveCount(1);        // only the drawing that exists
 });

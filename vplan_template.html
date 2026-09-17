@@ -123,6 +123,9 @@ body{
   border-radius:10px;box-shadow:0 18px 48px rgba(0,0,0,.38)}
 .topo-lens svg{display:block;width:min(88vw,1440px);min-width:0;height:auto}
 .topo-lens-x{position:fixed;top:14px;right:16px}
+.topo-empty{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;background:var(--panel);
+  padding:14px 12px;color:var(--dim);font-size:12px;text-align:center}
+.topo-empty code{font-size:11px;padding:1px 4px;border:1px solid var(--line);border-radius:4px}
 @media print{.topo-body{break-inside:avoid} .topo-lens{display:none!important}}
 
 /* ---- review rail: comments live down the right edge, never on top of the row you are reading --- */
@@ -530,7 +533,9 @@ tr.detail > td{background:var(--panel-2);padding:14px 18px;border-bottom:2px sol
   },
   "meta": {
     "ip_name": "",
-    "uarch": "",
+    "topology": "",
+  "architecture": "",
+  "uarch": "",
     "ref_model": "",
     "csr": "",
     "owner": "",
@@ -589,7 +594,8 @@ let TAB  = 'features';
 const SUGOPEN = new Set();   // '<kind>:accepted' | '<kind>:rejected' — open fold groups
 let PEEK = null;             // {kind:'item'|'feature', id} — the row the peek drawer is showing
 /* The plan carries drawings in meta — a testbench topology and the DUT's own architecture. Each is
-   a fold of its own; DIA holds which are open and DIAZ which single one is blown up full-screen. */
+   a fold of its own, present even while the drawing is missing; DIA holds which are open and DIAZ
+   which single one is blown up full-screen. */
 const DIAGRAMS=[['topology','Testbench topology'],['architecture','DUT architecture']];
 const DIA = new Set();       // meta keys whose fold is open
 let DIAZ = null;             // the meta key currently open full-screen (click the drawing)
@@ -1106,12 +1112,15 @@ function sanitizeSvg(src){
 }
 function diagramBlock(key,title){
   const svg=sanitizeSvg(DATA.meta&&DATA.meta[key]);
-  if(!svg) return '';                       // a plan that carries no such drawing shows no fold
-  const open=DIA.has(key), big=open&&DIAZ===key;
+  /* the fold is part of the plan's shape, not of its contents: it is there from the first day, empty,
+     so a plan that has no drawing yet still says where the drawing goes */
+  const open=DIA.has(key), big=!!svg&&open&&DIAZ===key;
+  const hint=svg?(open?'그림을 클릭하면 크게 봅니다':'클릭하면 펼쳐집니다'):'아직 비어 있습니다';
   return `<div class="topo">
     <button class="topo-head" data-act="topo" data-k="${esc(key)}"><span class="caret">${open?'▾':'▸'}</span>
-      <b>${esc(title)}</b><span class="hint">${open?'그림을 클릭하면 크게 봅니다':'클릭하면 펼쳐집니다'}</span></button>
-    ${open?`<div class="topo-body" data-act="topo-zoom" data-k="${esc(key)}" title="클릭하면 크게 봅니다">${svg}</div>`:''}
+      <b>${esc(title)}</b><span class="hint">${hint}</span></button>
+    ${open?(svg?`<div class="topo-body" data-act="topo-zoom" data-k="${esc(key)}" title="클릭하면 크게 봅니다">${svg}</div>`
+             :`<div class="topo-empty">아직 그림이 없습니다 — <code>meta.${esc(key)}</code>에 SVG를 넣으면 여기에 그려집니다.</div>`):''}
     ${big?`<div class="topo-lens" data-act="topo-zoom" data-k="${esc(key)}" role="dialog" aria-label="${esc(title)}">
       <div class="topo-lens-fig">${svg}</div>
       <button class="btn sm topo-lens-x" data-act="topo-zoom" data-k="${esc(key)}" title="닫기 (Esc)">✕</button></div>`:''}
