@@ -8,7 +8,8 @@ Claude Code가 데이터 블록을 읽고 써서 플랜 생성과 gap analysis�
 vplan_template.html   # the product: editable UI + its own data (single file)
 CLAUDE.md             # schema + editing rules — the SSOT agents read first
 skills/               # Claude Code skills: vplan_create, vplan_suggest, vplan_audit,
-                      #                     vplan_feature_desc, vplan_item_desc
+                      #                     vplan_feature_desc, vplan_item_desc,
+                      #                     vplan_testcase_group
 bin/                  # save helper + recovery script
 install.sh            # one-shot setup (macOS)
 test/                 # Playwright suite driving the real file in a real browser
@@ -28,6 +29,7 @@ test/                 # Playwright suite driving the real file in a real browser
 | `vplan_audit` skill | `~/.claude/skills/` | `/vplan_audit <IP>` — 기존 행 검토 → 누락/불충분/미스매치 카드 |
 | `vplan_feature_desc` skill | `~/.claude/skills/` | `/vplan_feature_desc <IP>` — feature 행의 설명 채우기 |
 | `vplan_item_desc` skill | `~/.claude/skills/` | `/vplan_item_desc <IP>` — verif item의 설명·오라클·리포트 채우기 |
+| `vplan_testcase_group` skill | `~/.claude/skills/` | `/vplan_testcase_group <IP>` — feature를 스티뮬러스 단위로 묶어 testcase 정의 |
 | save helper | launchd `com.vplan.save` | localhost process that makes the page's Save dialog-free |
 | runtime | `~/.vplan-kit/` | helper + recovery scripts, and `kit-path` pointing back at this clone |
 
@@ -61,7 +63,8 @@ Connect the Notion (or Atlassian) MCP connector so Claude Code can reach the MAS
 Nothing an agent writes enters the plan on its own. `suggestions[]`/`audits[]` are inboxes; the Accept
 button is the only path into the plan. 예외는 둘 — `/vplan_feature_desc <IP>`는 **feature 행의 description**을,
 `/vplan_item_desc <IP>`는 **verif item의 description·oracle·report**를 바로 채웁니다. 둘 다 이미 쓰여 있는 글은
-절대 건드리지 않고, 담당 테이블 밖의 칸도 손대지 않습니다.
+절대 건드리지 않고, 담당 테이블 밖의 칸도 손대지 않습니다. 행을 새로 만드는 스킬은 `/vplan_testcase_group <IP>`
+하나뿐 — **testcase**만, 그것도 커버되지 않은 feature를 스티뮬러스 단위로 묶어서 만듭니다.
 
 ## Saving, snapshots, sharing
 
