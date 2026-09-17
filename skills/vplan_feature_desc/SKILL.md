@@ -7,7 +7,7 @@ description: Write the Description of a vplan's FEATURE rows from the plan's Inp
 
 The user writes the feature titles; this skill writes their descriptions. It is the one skill allowed
 to write into `features[]` directly — and only into `description`, never another field. **Features
-only**: `items[]` is out of scope here, untouched, and gets its own skill later.
+only**: `items[]` is out of scope here and untouched — that table belongs to `vplan_item_desc`.
 
 Two rules decide what it may touch:
 

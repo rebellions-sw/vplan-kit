@@ -79,7 +79,8 @@ vplan-kit installed.
   3. Save As writes a dated read-only snapshot (share those, not the original).
   4. /vplan_suggest <IP> proposes what the plan is missing; /vplan_audit <IP> judges what it
      already says against the same sources (누락 / 불충분 / 미스매치);
-     /vplan_feature_desc <IP> fills the description of feature rows you only titled.
+     /vplan_feature_desc <IP> fills the description of feature rows you only titled,
+     /vplan_item_desc <IP> the description/oracle/report of verification items.
 The skills work from any directory — they find this clone via ~/.vplan-kit/kit-path.
 Moved or re-cloned the kit? Just run ./install.sh again from the new location.
 If Save ever says the helper is down, saves land in ~/Downloads — recover them with:

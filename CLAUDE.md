@@ -15,12 +15,14 @@ The skills, and what each is allowed to touch:
 | `vplan_create` | the template | a new `~/vplans/vplan_<IP>.html` |
 | `vplan_suggest` | Input Sources + the plan | `suggestions[]` — proposals for rows that do not exist yet |
 | `vplan_audit` | Input Sources + the plan | `audits[]` — findings against rows that do (missing / insufficient / mismatch) |
-| `vplan_feature_desc` | Input Sources + the plan | **`features[]`, one field wide**: `description` on rows that are not `finalized`, written below the `=== AI ===` marker so the user's own text above it is untouched (an items-side skill comes later) |
+| `vplan_feature_desc` | Input Sources + the plan | **`features[]`, one field wide**: `description` on rows that are not `finalized`, written below the `=== AI ===` marker so the user's own text above it is untouched |
+| `vplan_item_desc` | Input Sources + the plan | **`items[]`, three fields wide**: `description` (same marker rule), plus `oracle` and `report` — single lines with no room for a marker, so only filled when empty, never overwritten |
 
 Both inbox skills exclude everything already decided — rows, and pending, accepted or rejected cards
-alike. `vplan_feature_desc` is the single, deliberate exception to "agents never write rows": it may
-write `description` on `features[]` (items are out of its scope) — never on a row whose `status` is `finalized` — and
-must verify before saving that no other field moved. Authorship is carried by the text itself:
+alike. The two `*_desc` skills are the deliberate exception to "agents never write rows", and each owns
+exactly one table: `vplan_feature_desc` writes `description` on `features[]`, `vplan_item_desc` writes
+`description`/`oracle`/`report` on `items[]`. Neither touches a row whose `status` is `finalized`,
+neither touches the other's table, and both must verify before saving that no other field moved. Authorship is carried by the text itself:
 `AI_MARK` (`=== AI ===`) on its own line separates the user's half above from the agent's below, the
 Description label shows an "AI 채움" badge whenever a description contains it, and a re-run replaces
 everything from the marker down. No flag field: delete the marker section and the badge goes with it.
